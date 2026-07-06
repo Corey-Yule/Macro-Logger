@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/*
+ * Dark-first theme. Data colors (cal/protein/carbs/fat) are a validated
+ * categorical set on the card surface (#16181d): lightness band, CVD
+ * separation and 3:1 contrast all pass. The bright accent (#a3e635) is UI
+ * chrome only — buttons, active states — never a data encoding.
+ */
+@theme {
+  --color-bg: #0b0c0f;
+  --color-card: #16181d;
+  --color-raise: #1e2128;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-ink: #f4f4f2;
+  --color-ink-dim: #b4b4ac;
+  --color-mute: #85847c;
+  --color-accent: #a3e635;
+  --color-cal: #65a30d;
+  --color-protein: #e66767;
+  --color-carbs: #3987e5;
+  --color-fat: #c98500;
+  --color-danger: #d03b3b;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- entrance animation: cards rise in, staggered ---- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.12s; }
+.rise-3 { animation-delay: 0.19s; }
+.rise-4 { animation-delay: 0.26s; }
+.rise-5 { animation-delay: 0.33s; }
+
+/* ---- bottom sheet slide-up ---- */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+.sheet-up {
+  animation: sheet-up 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fade-in 0.25s ease-out both;
+}
+
+/* ---- scanner laser sweep ---- */
+@keyframes laser {
+  0%, 100% { top: 12%; }
+  50% { top: 84%; }
+}
+.laser {
+  animation: laser 2.2s ease-in-out infinite;
+}
+
+/* html5-qrcode injects a <video> into its container */
+.scanner-view video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .sheet-up, .fade-in, .laser {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
