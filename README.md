@@ -1,36 +1,127 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🔥 MacroLog
 
-## Getting Started
+**A mobile-first calorie & macro tracker with barcode scanning** — scan it, log it, hit your macros.
 
-First, run the development server:
+MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point your camera at a barcode and it pulls nutrition data instantly, or search across two food databases covering millions of products and generic foods. Track calories, protein, carbs, and fat against personal goals with a fast, dark, animated UI designed for your phone.
+
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
+![React](https://img.shields.io/badge/React-19-61dafb?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38bdf8?logo=tailwindcss)
+![Supabase](https://img.shields.io/badge/Supabase-Auth_+_Postgres-3fcf8e?logo=supabase)
+
+---
+
+## ✨ Features
+
+- **📷 Barcode scanning** — UPC/EAN scanning through the device camera with clear permission, no-camera, and not-found states
+- **🔎 Dual-database food search** — [Open Food Facts](https://openfoodfacts.org) (packaged products, photos) merged with [USDA FoodData Central](https://fdc.nal.usda.gov) (lab-verified generic foods, branded fallback) behind a single server-side API route
+- **📊 Daily dashboard** — animated calorie ring with count-up remaining calories, macro progress meters, on-track/over-goal status, and a week calendar strip with logged-day dots
+- **📒 Food diary** — entries grouped by meal (breakfast / lunch / dinner / snacks), serving-size and gram-based portions, optimistic one-tap delete, full date navigation
+- **🕑 Recent foods** — re-log anything from your history in two taps, with nutrition rebuilt from your own entries
+- **📈 Trends** — 7/30-day calorie chart against your goal line with tap-to-inspect days, weekly averages, and streak tracking
+- **⚖️ Weight logging** — one entry per day with a 90-day trend line and lb/kg preference that persists
+- **🎯 Percentage-based goals** — set your calorie target, then split macros with auto-balancing sliders that always total 100% (with Balanced / High protein / Low carb presets)
+- **🔐 Private by design** — Supabase authentication with Postgres row-level security; users can only ever read or write their own data
+
+## 🛠 Tech stack
+
+| Layer | Choice |
+|---|---|
+| Framework | [Next.js 16](https://nextjs.org) (App Router, Turbopack) + React 19 |
+| Language | TypeScript |
+| Styling | Tailwind CSS v4 (CSS-first config, custom dark theme) |
+| Icons | [lucide-react](https://lucide.dev) |
+| Auth + database | [Supabase](https://supabase.com) (Postgres, RLS, email auth) |
+| Food data | Open Food Facts API + USDA FoodData Central API |
+| Barcode scanning | [html5-qrcode](https://github.com/mebjas/html5-qrcode) |
+
+## 🚀 Getting started
+
+### Prerequisites
+
+- Node.js 20+
+- A free [Supabase](https://supabase.com) project
+- A free [USDA FoodData Central API key](https://fdc.nal.usda.gov/api-key-signup) *(optional — search falls back to Open Food Facts only without it)*
+
+### Setup
+
+1. **Clone and install**
+
+   ```bash
+   git clone <your-repo-url>
+   cd FitnessApp
+   npm install
+   ```
+
+2. **Configure environment** — copy the example file and fill in your values:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   | Variable | Where to find it |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API (anon/public key) |
+   | `USDA_API_KEY` | Emailed to you after [signup](https://fdc.nal.usda.gov/api-key-signup) (server-side only) |
+
+3. **Create the database** — in the Supabase dashboard, open **SQL Editor** and run, in order:
+
+   - [`supabase/schema.sql`](supabase/schema.sql) — profiles, food logs, RLS policies, signup trigger
+   - [`supabase/weights.sql`](supabase/weights.sql) — weight tracking table
+
+4. **Run it**
+
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000), create an account, and start logging.
+
+### 📱 Testing on a phone
+
+Camera access requires HTTPS (or `localhost`). To use the barcode scanner from a real phone during development, tunnel your dev server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npx ngrok http 3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📁 Project structure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+src/
+├── app/
+│   ├── page.tsx               # Dashboard: week strip, calorie ring, macros, meals
+│   ├── add/page.tsx           # Add food: search + scan tabs, serving sheet
+│   ├── trends/page.tsx        # Calorie chart, averages, weight tracking
+│   ├── settings/page.tsx      # Calorie goal + %-based macro sliders, account
+│   ├── login/page.tsx         # Sign in / sign up
+│   └── api/food-search/       # Server route merging Open Food Facts + USDA
+├── components/                # CalorieRing, MacroBar, WeekStrip, BarcodeScanner, …
+├── lib/
+│   ├── diary.ts               # Data access: logs, profiles, trends, weights
+│   ├── openfoodfacts.ts       # Open Food Facts client
+│   ├── usda.ts                # USDA FoodData Central client (server-only)
+│   └── supabase/              # Supabase browser client
+├── proxy.ts                   # Auth gate — session refresh + route protection
+└── types/                     # Shared domain types
+supabase/                      # SQL schema + migrations
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🗺 Roadmap
 
-## Learn More
+- [ ] Copy yesterday's meals / duplicate a meal
+- [ ] Quick-add manual calories & custom foods
+- [ ] Edit logged entries in place
+- [ ] Restaurant food coverage (Nutritionix)
+- [ ] PWA install (home-screen app + offline shell)
+- [ ] CSV export
 
-To learn more about Next.js, take a look at the following resources:
+## 📜 Changelog
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+All notable changes are documented in [CHANGELOG.md](CHANGELOG.md).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🙏 Data credits
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Nutrition data provided by [Open Food Facts](https://openfoodfacts.org) (ODbL) and [USDA FoodData Central](https://fdc.nal.usda.gov) (public domain).
