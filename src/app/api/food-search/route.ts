@@ -28,9 +28,9 @@ export async function GET(request: NextRequest) {
     searchUsda(q).catch(() => [] as FoodItem[]),
   ]);
 
-  // Generic USDA foods (no brand) lead — they're the canonical answer for
-  // plain queries like "banana" — then OFF products (they have photos),
-  // then USDA branded items that OFF didn't already cover.
+  // Generic USDA foods (no brand) get inserted first so that on relevance
+  // ties (e.g. "banana") the canonical entry leads; then OFF products
+  // (they have photos), then USDA branded items OFF didn't already cover.
   const generic = usda.filter((u) => !u.brand);
   const branded = usda.filter((u) => u.brand);
 
@@ -50,6 +50,25 @@ export async function GET(request: NextRequest) {
   off.forEach(push);
   branded.forEach(push);
   generic.slice(5).forEach(push);
+
+  // Rank by how many of the query's words actually appear in name + brand,
+  // so "coop bacon and egg sandwich" surfaces real matches instead of
+  // whatever the upstream engines ranked first. Sort is stable, so the
+  // source ordering above breaks ties.
+  const tokens = q
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((t) => t.length >= 2);
+  if (tokens.length > 0) {
+    const score = new Map(
+      out.map((item) => {
+        const hay = `${item.name} ${item.brand ?? ""}`.toLowerCase();
+        const hits = tokens.reduce((s, t) => s + (hay.includes(t) ? 1 : 0), 0);
+        return [item, hits / tokens.length] as const;
+      })
+    );
+    out.sort((a, b) => score.get(b)! - score.get(a)!);
+  }
 
   return NextResponse.json(out.slice(0, 30));
 }

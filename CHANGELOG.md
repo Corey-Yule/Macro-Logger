@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.6.0] — 2026-07-06
+
+### Added
+- **Custom & community foods** — create your own foods (`/foods/new`) with per-serving nutrition and optional gram weights; private foods are loggable immediately and searchable alongside database results with a CUSTOM badge
+- **Community review pipeline** — optionally submit a food for review; admins approve it into the shared database or reject it with a note. New `supabase/community_foods.sql` migration adds the table, a `role` column on profiles, and row-level security that makes self-approval impossible
+- **Admin review queue** (`/admin`, linked from Settings for admins) — pending submissions with full nutrition, a macro-vs-calorie consistency check that flags entries drifting more than 15%, and approve/reject actions
+- "My foods" section on the add page, and "Create food" shortcuts from empty search results and failed barcode scans (barcode pre-filled)
+- Torch/flashlight toggle in the barcode scanner (when the camera supports it)
+
+### Changed
+- **Search relevance overhaul** — Open Food Facts queries now use the modern Search-a-licious engine (the legacy endpoint returned zero results for multi-word branded queries like "Coop bacon and egg sandwich"), and merged results are re-ranked by how many query words each item's name and brand actually match
+
+### Fixed
+- **Barcode scanning on mobile** — the camera opened but never detected barcodes. Scanning now uses the browser's native BarcodeDetector where available, requests a 1080p camera feed (the 640×480 default was too soft to resolve UPC lines), and restricts decoding to a marked scan band with a matching frame overlay
+
 ## [0.5.0] — 2026-07-06
 
 ### Changed

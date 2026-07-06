@@ -20,7 +20,7 @@ export interface FoodItem {
   name: string;
   brand: string | null;
   /** Which database the item came from (recalled diary items leave it unset). */
-  source?: "off" | "usda";
+  source?: "off" | "usda" | "community";
   imageUrl: string | null;
   /** Human-readable serving, e.g. "30 g" */
   servingSize: string | null;
@@ -63,6 +63,30 @@ export interface Profile {
   protein_goal: number;
   carbs_goal: number;
   fat_goal: number;
+  role: "user" | "admin";
   created_at: string;
   updated_at: string;
+}
+
+/** Review lifecycle of a user-created food. */
+export type FoodStatus = "private" | "pending" | "approved" | "rejected";
+
+/** A row in the community_foods table. Nutrition values are per serving. */
+export interface CommunityFood {
+  id: string;
+  created_by: string;
+  name: string;
+  brand: string | null;
+  barcode: string | null;
+  serving_label: string;
+  serving_grams: number | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  status: FoodStatus;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
 }

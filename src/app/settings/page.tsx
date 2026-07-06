@@ -6,12 +6,14 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Flame,
   Loader2,
   LogOut,
   Mail,
   Minus,
   Plus,
+  ShieldCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchProfile, updateGoals } from "@/lib/diary";
@@ -64,6 +66,7 @@ function pctFromGrams(protein: number, carbs: number, fat: number): Pct {
 export default function SettingsPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [calories, setCalories] = useState<number | null>(null);
   const [pct, setPct] = useState<Pct>({ protein: 30, carbs: 40, fat: 30 });
   const [saved, setSaved] = useState<{ calories: number } & Record<MacroKey, number> | null>(null);
@@ -75,6 +78,7 @@ export default function SettingsPage() {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
     fetchProfile().then((p) => {
+      setIsAdmin(p?.role === "admin");
       const cal = p?.calorie_goal ?? 2000;
       const g = {
         protein: p?.protein_goal ?? 150,
@@ -303,8 +307,23 @@ export default function SettingsPage() {
             </button>
           </section>
 
+          {/* admin */}
+          {isAdmin && (
+            <section className="rise rise-2 mt-4 rounded-3xl bg-card p-5 ring-1 ring-line">
+              <h2 className="text-sm font-bold">Admin</h2>
+              <Link
+                href="/admin"
+                className="mt-3 flex items-center gap-3 rounded-2xl bg-raise px-4 py-3 ring-1 ring-line transition hover:ring-accent/40"
+              >
+                <ShieldCheck className="size-4 shrink-0 text-accent" />
+                <span className="flex-1 text-sm font-medium">Review community foods</span>
+                <ChevronRight className="size-4 text-mute" />
+              </Link>
+            </section>
+          )}
+
           {/* account */}
-          <section className="rise rise-2 mt-4 rounded-3xl bg-card p-5 ring-1 ring-line">
+          <section className="rise rise-3 mt-4 rounded-3xl bg-card p-5 ring-1 ring-line">
             <h2 className="text-sm font-bold">Account</h2>
             <div className="mt-3 flex items-center gap-3 rounded-2xl bg-raise px-4 py-3 ring-1 ring-line">
               <Mail className="size-4 shrink-0 text-mute" />

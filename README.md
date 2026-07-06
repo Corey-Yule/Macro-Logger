@@ -14,11 +14,12 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
 
 ## ✨ Features
 
-- **📷 Barcode scanning** — UPC/EAN scanning through the device camera with clear permission, no-camera, and not-found states
+- **📷 Barcode scanning** — UPC/EAN scanning through the device camera using the native BarcodeDetector where available, with a torch toggle and clear permission, no-camera, and not-found states
 - **🔎 Dual-database food search** — [Open Food Facts](https://openfoodfacts.org) (packaged products, photos) merged with [USDA FoodData Central](https://fdc.nal.usda.gov) (lab-verified generic foods, branded fallback) behind a single server-side API route
 - **📊 Daily dashboard** — animated calorie ring with count-up remaining calories, macro progress meters, on-track/over-goal status, and a week calendar strip with logged-day dots
 - **📒 Food diary** — entries grouped by meal (breakfast / lunch / dinner / snacks), serving-size and gram-based portions, optimistic one-tap delete, full date navigation
 - **🕑 Recent foods** — re-log anything from your history in two taps, with nutrition rebuilt from your own entries
+- **🍳 Custom & community foods** — create foods that aren't in any database (private to you, loggable instantly), or submit them to the community; an admin review queue with a macro-consistency check gates what enters the shared database
 - **📈 Trends** — 7/30-day calorie chart against your goal line with tap-to-inspect days, weekly averages, and streak tracking
 - **⚖️ Weight logging** — one entry per day with a 90-day trend line and lb/kg preference that persists
 - **🎯 Percentage-based goals** — set your calorie target, then split macros with auto-balancing sliders that always total 100% (with Balanced / High protein / Low carb presets)
@@ -70,6 +71,7 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
 
    - [`supabase/schema.sql`](supabase/schema.sql) — profiles, food logs, RLS policies, signup trigger
    - [`supabase/weights.sql`](supabase/weights.sql) — weight tracking table
+   - [`supabase/community_foods.sql`](supabase/community_foods.sql) — custom foods, user roles, review pipeline (edit the email at the bottom to grant yourself admin)
 
 4. **Run it**
 
@@ -112,7 +114,6 @@ supabase/                      # SQL schema + migrations
 ## 🗺 Roadmap
 
 - [ ] Copy yesterday's meals / duplicate a meal
-- [ ] Quick-add manual calories & custom foods
 - [ ] Edit logged entries in place
 - [ ] Restaurant food coverage (Nutritionix)
 - [ ] PWA install (home-screen app + offline shell)

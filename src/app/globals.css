@@ -86,6 +86,14 @@ body {
   object-fit: cover;
 }
 
+/* soften html5-qrcode's qrbox shading so our own frame overlay reads */
+.scanner-view #qr-shaded-region {
+  border-color: rgba(6, 7, 10, 0.55) !important;
+}
+.scanner-view #qr-shaded-region > div {
+  display: none; /* its built-in white corner ticks — we draw our own */
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rise, .sheet-up, .fade-in, .laser {
     animation-duration: 0.01ms !important;

@@ -95,27 +95,40 @@ export async function getProductByBarcode(
   return toFoodItem(data.product);
 }
 
+// Search-a-licious hits look like OffProduct except brands is an array and
+// the kJ fallback lives under a different key.
+interface OffSearchHit extends Omit<OffProduct, "brands"> {
+  brands?: string[] | string;
+  nutriments?: OffNutriments & { "energy-kj_100g"?: number };
+}
+
 /**
- * Free-text product search (fallback when scanning fails).
- * Returns up to 20 results that have usable nutrition data.
+ * Free-text product search (fallback when scanning fails), via OFF's
+ * Search-a-licious engine — far better relevance than the legacy
+ * /cgi/search.pl endpoint, which returns zero hits for many multi-word
+ * branded queries.
  */
 export async function searchProducts(query: string): Promise<FoodItem[]> {
   const params = new URLSearchParams({
-    search_terms: query,
-    search_simple: "1",
-    action: "process",
-    json: "1",
+    q: query,
     page_size: "20",
     fields: FIELDS,
   });
 
-  const res = await fetch(`${OFF_BASE}/cgi/search.pl?${params}`, {
+  const res = await fetch(`https://search.openfoodfacts.org/search?${params}`, {
     headers: OFF_HEADERS,
   });
   if (!res.ok) throw new Error(`Open Food Facts error: ${res.status}`);
 
-  const data: { products?: OffProduct[] } = await res.json();
-  return (data.products ?? [])
-    .map(toFoodItem)
+  const data: { hits?: OffSearchHit[] } = await res.json();
+  return (data.hits ?? [])
+    .map((hit) => {
+      const n = hit.nutriments ?? {};
+      return toFoodItem({
+        ...hit,
+        brands: Array.isArray(hit.brands) ? hit.brands.join(",") : hit.brands,
+        nutriments: { energy_100g: n["energy-kj_100g"], ...n },
+      });
+    })
     .filter((item): item is FoodItem => item !== null);
 }

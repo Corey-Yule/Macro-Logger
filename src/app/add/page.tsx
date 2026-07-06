@@ -9,16 +9,31 @@ import {
   Loader2,
   Package,
   PackageSearch,
+  PenLine,
+  Plus,
   ScanLine,
   Search,
+  UtensilsCrossed,
 } from "lucide-react";
 import AddFoodSheet from "@/components/AddFoodSheet";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { dateKey, entryToFoodItem, fetchRecentFoods } from "@/lib/diary";
-import type { FoodItem, FoodLogEntry, Meal } from "@/types";
+import {
+  communityToFoodItem,
+  fetchMyFoods,
+  searchCommunityFoods,
+} from "@/lib/customFoods";
+import type { CommunityFood, FoodItem, FoodLogEntry, Meal } from "@/types";
 
 type Tab = "search" | "scan";
 type ScanPhase = "scanning" | "looking-up" | "not-found";
+
+/** A food ready to open in the serving sheet. */
+interface Picked {
+  food: FoodItem;
+  allowGrams: boolean;
+  initialQty?: number;
+}
 
 function guessMeal(): Meal {
   const h = new Date().getHours();
@@ -28,7 +43,31 @@ function guessMeal(): Meal {
   return "snacks";
 }
 
-function FoodRow({ food, onPick }: { food: FoodItem; onPick: () => void }) {
+const STATUS_CHIP: Record<CommunityFood["status"], { label: string; cls: string }> = {
+  private: { label: "Private", cls: "bg-raise text-mute ring-line" },
+  pending: { label: "In review", cls: "bg-fat/10 text-fat ring-fat/30" },
+  approved: { label: "Community", cls: "bg-accent/10 text-accent ring-accent/30" },
+  rejected: { label: "Rejected", cls: "bg-danger/10 text-danger ring-danger/30" },
+};
+
+function SourceBadge({ source }: { source: FoodItem["source"] }) {
+  if (source === "usda")
+    return (
+      <span className="shrink-0 rounded bg-carbs/15 px-1 py-0.5 text-[9px] font-bold tracking-wide text-carbs">
+        USDA
+      </span>
+    );
+  if (source === "community")
+    return (
+      <span className="shrink-0 rounded bg-accent/15 px-1 py-0.5 text-[9px] font-bold tracking-wide text-accent">
+        CUSTOM
+      </span>
+    );
+  return null;
+}
+
+function FoodRow({ item, onPick }: { item: Picked; onPick: () => void }) {
+  const { food } = item;
   return (
     <button
       onClick={onPick}
@@ -43,21 +82,23 @@ function FoodRow({ food, onPick }: { food: FoodItem; onPick: () => void }) {
         />
       ) : (
         <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
-          <Package className="size-5 text-mute" />
+          {food.source === "community" ? (
+            <UtensilsCrossed className="size-5 text-mute" />
+          ) : (
+            <Package className="size-5 text-mute" />
+          )}
         </div>
       )}
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 truncate text-sm font-medium">
           <span className="truncate">{food.name}</span>
-          {food.source === "usda" && (
-            <span className="shrink-0 rounded bg-carbs/15 px-1 py-0.5 text-[9px] font-bold tracking-wide text-carbs">
-              USDA
-            </span>
-          )}
+          <SourceBadge source={food.source} />
         </p>
         <p className="truncate text-xs text-mute">
           {food.brand ? `${food.brand} · ` : ""}
-          {Math.round(food.per100g.calories)} kcal / 100 g
+          {food.source === "community" && food.perServing
+            ? `${Math.round(food.perServing.calories)} kcal / ${food.servingSize}`
+            : `${Math.round(food.per100g.calories)} kcal / 100 g`}
         </p>
       </div>
       <span className="text-xs font-semibold text-accent">Add</span>
@@ -81,21 +122,19 @@ function AddFood() {
   })();
 
   const [tab, setTab] = useState<Tab>(params.get("tab") === "scan" ? "scan" : "search");
-  const [selected, setSelected] = useState<{
-    food: FoodItem;
-    allowGrams: boolean;
-    initialQty?: number;
-  } | null>(null);
+  const [selected, setSelected] = useState<Picked | null>(null);
 
-  // --- recent foods (shown while the search box is empty) ---
+  // --- shown while the search box is empty ---
   const [recents, setRecents] = useState<FoodLogEntry[]>([]);
+  const [myFoods, setMyFoods] = useState<CommunityFood[]>([]);
   useEffect(() => {
     fetchRecentFoods().then(setRecents).catch(() => {});
+    fetchMyFoods(5).then(setMyFoods).catch(() => {}); // table may not exist yet
   }, []);
 
   // --- search state ---
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<FoodItem[]>([]);
+  const [results, setResults] = useState<Picked[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -113,13 +152,20 @@ function AddFood() {
         }
         setSearching(true);
         setSearchError(false);
-        fetch(`/api/food-search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
-          .then((res) => {
-            if (!res.ok) throw new Error(String(res.status));
-            return res.json() as Promise<FoodItem[]>;
-          })
-          .then((items) => {
-            setResults(items);
+        Promise.all([
+          fetch(`/api/food-search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal }).then(
+            (res) => {
+              if (!res.ok) throw new Error(String(res.status));
+              return res.json() as Promise<FoodItem[]>;
+            }
+          ),
+          // your own + approved community foods, ranked first
+          searchCommunityFoods(q).catch(() => [] as CommunityFood[]),
+        ])
+          .then(([api, custom]) => {
+            const customPicked = custom.map(communityToFoodItem);
+            const apiPicked = api.map((food) => ({ food, allowGrams: true }));
+            setResults([...customPicked, ...apiPicked]);
             setSearched(true);
           })
           .catch(() => {
@@ -158,6 +204,9 @@ function AddFood() {
     }
   }
 
+  const createHref = (extra = "") =>
+    `/foods/new?date=${date}&meal=${initialMeal}${extra}`;
+
   return (
     <main className="px-4 pb-10 pt-6">
       {/* header */}
@@ -169,7 +218,15 @@ function AddFood() {
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <h1 className="text-lg font-bold tracking-tight">Add food</h1>
+        <h1 className="flex-1 text-lg font-bold tracking-tight">Add food</h1>
+        <Link
+          href={createHref()}
+          aria-label="Create a food"
+          className="flex items-center gap-1.5 rounded-xl bg-card px-3 py-2 text-xs font-semibold text-ink-dim ring-1 ring-line transition-colors hover:text-accent hover:ring-accent/40"
+        >
+          <PenLine className="size-3.5" />
+          Create
+        </Link>
       </header>
 
       {/* tabs */}
@@ -214,57 +271,106 @@ function AddFood() {
                 Search failed — check your connection and try again.
               </p>
             )}
+
             {!searchError && searched && results.length === 0 && !searching && (
-              <div className="flex flex-col items-center gap-2 py-12 text-center">
+              <div className="flex flex-col items-center gap-2 py-10 text-center">
                 <PackageSearch className="size-8 text-mute" />
                 <p className="text-sm text-ink-dim">No foods found for “{query.trim()}”.</p>
-                <p className="text-xs text-mute">Try a simpler term or a brand name.</p>
+                <p className="text-xs text-mute">Try a simpler term — or create it yourself.</p>
+                <Link
+                  href={createHref()}
+                  className="mt-2 flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-xs font-bold text-bg"
+                >
+                  <Plus className="size-3.5" />
+                  Create “{query.trim().slice(0, 30)}”
+                </Link>
               </div>
             )}
-            {!searched && !searching && query.trim().length < 2 && recents.length === 0 && (
-              <p className="py-12 text-center text-sm text-mute">
-                Powered by Open Food Facts + USDA — millions of foods.
-              </p>
-            )}
-            {results.map((food) => (
+
+            {results.map((item, i) => (
               <FoodRow
-                key={food.barcode}
-                food={food}
-                onPick={() => setSelected({ food, allowGrams: true })}
+                key={`${item.food.barcode}-${i}`}
+                item={item}
+                onPick={() => setSelected(item)}
               />
             ))}
 
-            {/* recent foods when not searching */}
-            {query.trim().length < 2 && recents.length > 0 && (
-              <div className="space-y-2">
-                <p className="flex items-center gap-1.5 px-1 pt-1 text-xs font-semibold text-mute">
-                  <History className="size-3.5" />
-                  Recent
-                </p>
-                {recents.map((entry) => (
-                  <button
-                    key={entry.id}
-                    onClick={() => setSelected(entryToFoodItem(entry))}
-                    className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left ring-1 ring-line transition hover:ring-accent/40 active:scale-[0.99]"
-                  >
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
-                      <History className="size-5 text-mute" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{entry.food_name}</p>
-                      <p className="truncate text-xs text-mute">
-                        {entry.brand ? `${entry.brand} · ` : ""}
-                        {entry.serving_unit === "g"
-                          ? `${entry.serving_qty} g`
-                          : `${entry.serving_qty} × ${entry.serving_unit}`}
-                        {" · "}
-                        {Math.round(entry.calories)} kcal
-                      </p>
-                    </div>
-                    <span className="text-xs font-semibold text-accent">Log again</span>
-                  </button>
-                ))}
-              </div>
+            {/* idle view: my foods + recents */}
+            {query.trim().length < 2 && (
+              <>
+                {myFoods.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="flex items-center gap-1.5 px-1 pt-1 text-xs font-semibold text-mute">
+                      <UtensilsCrossed className="size-3.5" />
+                      My foods
+                    </p>
+                    {myFoods.map((f) => {
+                      const chip = STATUS_CHIP[f.status];
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setSelected(communityToFoodItem(f))}
+                          className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left ring-1 ring-line transition hover:ring-accent/40 active:scale-[0.99]"
+                        >
+                          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
+                            <UtensilsCrossed className="size-5 text-mute" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{f.name}</p>
+                            <p className="truncate text-xs text-mute">
+                              {f.brand ? `${f.brand} · ` : ""}
+                              {Math.round(f.calories)} kcal / {f.serving_label}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${chip.cls}`}
+                          >
+                            {chip.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {recents.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="flex items-center gap-1.5 px-1 pt-1 text-xs font-semibold text-mute">
+                      <History className="size-3.5" />
+                      Recent
+                    </p>
+                    {recents.map((entry) => (
+                      <button
+                        key={entry.id}
+                        onClick={() => setSelected(entryToFoodItem(entry))}
+                        className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left ring-1 ring-line transition hover:ring-accent/40 active:scale-[0.99]"
+                      >
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
+                          <History className="size-5 text-mute" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{entry.food_name}</p>
+                          <p className="truncate text-xs text-mute">
+                            {entry.brand ? `${entry.brand} · ` : ""}
+                            {entry.serving_unit === "g"
+                              ? `${entry.serving_qty} g`
+                              : `${entry.serving_qty} × ${entry.serving_unit}`}
+                            {" · "}
+                            {Math.round(entry.calories)} kcal
+                          </p>
+                        </div>
+                        <span className="text-xs font-semibold text-accent">Log again</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {myFoods.length === 0 && recents.length === 0 && !searching && (
+                  <p className="py-12 text-center text-sm text-mute">
+                    Powered by Open Food Facts + USDA — millions of foods.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -290,7 +396,8 @@ function AddFood() {
               </div>
               <p className="text-sm font-semibold">Barcode not in the databases</p>
               <p className="text-xs text-mute">
-                {lastBarcode} isn&apos;t in Open Food Facts or USDA yet.
+                {lastBarcode} isn&apos;t in Open Food Facts or USDA yet — you can add it
+                yourself from the label.
               </p>
               <div className="mt-2 grid w-full grid-cols-2 gap-2">
                 <button
@@ -299,13 +406,20 @@ function AddFood() {
                 >
                   Scan again
                 </button>
-                <button
-                  onClick={() => setTab("search")}
-                  className="rounded-xl bg-accent py-2.5 text-xs font-bold text-bg"
+                <Link
+                  href={createHref(`&barcode=${encodeURIComponent(lastBarcode)}`)}
+                  className="flex items-center justify-center gap-1 rounded-xl bg-accent py-2.5 text-xs font-bold text-bg"
                 >
-                  Search instead
-                </button>
+                  <Plus className="size-3.5" />
+                  Create food
+                </Link>
               </div>
+              <button
+                onClick={() => setTab("search")}
+                className="text-xs font-semibold text-mute underline-offset-2 hover:text-ink-dim hover:underline"
+              >
+                or search instead
+              </button>
             </div>
           )}
         </section>
