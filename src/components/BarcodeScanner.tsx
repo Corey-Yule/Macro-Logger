@@ -72,12 +72,10 @@ export default function BarcodeScanner({ onScan }: Props) {
           { facingMode: "environment" }, // back camera on phones
           {
             fps: 10,
-            // Restrict decoding to a wide central band — matches the frame
-            // overlay below and helps the JS decoder resolve 1D lines.
-            qrbox: (w, h) => ({
-              width: Math.floor(w * 0.8),
-              height: Math.floor(h * 0.35),
-            }),
+            // No qrbox: decode the FULL frame. A qrbox crops decoding to a
+            // band html5-qrcode positions against the video's natural size —
+            // which drifts from any custom overlay, so users end up aiming
+            // at a region that is never decoded. Full-frame can't mislead.
             // Default streams are 640×480 — too soft to resolve UPC lines.
             videoConstraints: {
               facingMode: "environment",
@@ -144,18 +142,21 @@ export default function BarcodeScanner({ onScan }: Props) {
   }
 
   return (
-    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-3xl bg-black ring-1 ring-line">
-      <div id="scanner-view" className="scanner-view absolute inset-0" />
+    // No fixed aspect ratio: the container hugs whatever shape the camera
+    // stream actually is (landscape on laptops, portrait on phones), so the
+    // overlay always sits on top of real video — never on black bars.
+    <div className="relative w-full overflow-hidden rounded-3xl bg-black ring-1 ring-line">
+      <div id="scanner-view" className="scanner-view" />
 
       {state === "starting" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-mute">
+        <div className="flex h-72 flex-col items-center justify-center gap-3 text-mute">
           <Loader2 className="size-7 animate-spin text-accent" />
           <p className="text-sm">Requesting camera…</p>
         </div>
       )}
 
       {state === "error" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
+        <div className="flex h-72 flex-col items-center justify-center gap-3 px-8 text-center">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-danger/10 ring-1 ring-danger/30">
             <CameraOff className="size-6 text-danger" />
           </div>
@@ -165,17 +166,17 @@ export default function BarcodeScanner({ onScan }: Props) {
 
       {state === "scanning" && (
         <>
-          {/* frame matching the qrbox scan band (80% × 35%, centered) */}
-          <div className="pointer-events-none absolute bottom-[32.5%] left-[10%] right-[10%] top-[32.5%]">
-            <div className="absolute -left-1 -top-1 size-8 rounded-tl-2xl border-l-[3px] border-t-[3px] border-accent" />
-            <div className="absolute -right-1 -top-1 size-8 rounded-tr-2xl border-r-[3px] border-t-[3px] border-accent" />
-            <div className="absolute -bottom-1 -left-1 size-8 rounded-bl-2xl border-b-[3px] border-l-[3px] border-accent" />
-            <div className="absolute -bottom-1 -right-1 size-8 rounded-br-2xl border-b-[3px] border-r-[3px] border-accent" />
+          {/* the whole frame is decoded, so the frame spans the whole video */}
+          <div className="pointer-events-none absolute inset-4">
+            <div className="absolute left-0 top-0 size-8 rounded-tl-2xl border-l-[3px] border-t-[3px] border-accent" />
+            <div className="absolute right-0 top-0 size-8 rounded-tr-2xl border-r-[3px] border-t-[3px] border-accent" />
+            <div className="absolute bottom-0 left-0 size-8 rounded-bl-2xl border-b-[3px] border-l-[3px] border-accent" />
+            <div className="absolute bottom-0 right-0 size-8 rounded-br-2xl border-b-[3px] border-r-[3px] border-accent" />
             {/* sweeping laser line */}
-            <div className="laser absolute left-3 right-3 h-0.5 rounded-full bg-accent shadow-[0_0_12px_2px_rgba(163,230,53,0.6)]" />
+            <div className="laser absolute left-4 right-4 h-0.5 rounded-full bg-accent shadow-[0_0_12px_2px_rgba(163,230,53,0.6)]" />
           </div>
-          <p className="pointer-events-none absolute bottom-4 left-0 right-0 text-center text-xs font-medium text-ink-dim [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
-            Line the barcode up inside the frame
+          <p className="pointer-events-none absolute bottom-3 left-0 right-0 text-center text-xs font-medium text-ink-dim [text-shadow:0_1px_3px_rgba(0,0,0,0.9)]">
+            Fill the frame with the barcode — steady and close
           </p>
           {torchSupported && (
             <button

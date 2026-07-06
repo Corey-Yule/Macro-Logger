@@ -79,19 +79,12 @@ body {
   animation: laser 2.2s ease-in-out infinite;
 }
 
-/* html5-qrcode injects a <video> into its container */
+/* html5-qrcode injects a <video> into its container. Don't force its size
+   or object-fit — the library positions everything against the video's
+   natural render box, and overriding it desyncs decode zone from display. */
 .scanner-view video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover;
-}
-
-/* soften html5-qrcode's qrbox shading so our own frame overlay reads */
-.scanner-view #qr-shaded-region {
-  border-color: rgba(6, 7, 10, 0.55) !important;
-}
-.scanner-view #qr-shaded-region > div {
-  display: none; /* its built-in white corner ticks — we draw our own */
+  display: block; /* kill the inline-element gap under the video */
+  width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.6.1] — 2026-07-06
+
+### Fixed
+- **Scanner overlay misalignment and mobile decode failure** — the 0.6.0 scan-band (`qrbox`) approach restricted decoding to a region html5-qrcode positions against the video's natural size, which drifted away from the visual frame (top of the view on desktop, bottom on phones) — so users were aiming at an area that was never decoded. The scanner now decodes the entire frame, the viewfinder hugs the camera stream's real shape on any device, and the overlay spans exactly what is being scanned.
+
 ## [0.6.0] — 2026-07-06
 
 ### Added
