@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { CookingPot, Cookie, Croissant, Plus, Salad, Trash2 } from "lucide-react";
+import {
+  CookingPot,
+  Cookie,
+  CopyPlus,
+  Croissant,
+  Loader2,
+  Plus,
+  Salad,
+  Trash2,
+} from "lucide-react";
 import type { FoodLogEntry, Meal } from "@/types";
 
 const MEAL_META: Record<Meal, { label: string; Icon: typeof Croissant; tint: string }> = {
@@ -11,11 +20,16 @@ const MEAL_META: Record<Meal, { label: string; Icon: typeof Croissant; tint: str
   snacks: { label: "Snacks", Icon: Cookie, tint: "#e66767" },
 };
 
+export type CopyState = "idle" | "busy" | "empty";
+
 interface Props {
   meal: Meal;
   date: string;
   entries: FoodLogEntry[];
   onDelete: (id: string) => void;
+  onEdit: (entry: FoodLogEntry) => void;
+  onCopyYesterday: (meal: Meal) => void;
+  copyState: CopyState;
 }
 
 function servingText(e: FoodLogEntry): string {
@@ -23,7 +37,15 @@ function servingText(e: FoodLogEntry): string {
   return `${e.serving_qty} × ${e.serving_unit}`;
 }
 
-export default function MealSection({ meal, date, entries, onDelete }: Props) {
+export default function MealSection({
+  meal,
+  date,
+  entries,
+  onDelete,
+  onEdit,
+  onCopyYesterday,
+  copyState,
+}: Props) {
   const { label, Icon, tint } = MEAL_META[meal];
   const total = Math.round(entries.reduce((s, e) => s + e.calories, 0));
 
@@ -36,7 +58,24 @@ export default function MealSection({ meal, date, entries, onDelete }: Props) {
         >
           <Icon className="size-4.5" style={{ color: tint }} />
         </div>
-        <h2 className="flex-1 text-sm font-bold">{label}</h2>
+        <h2 className="text-sm font-bold">{label}</h2>
+        <button
+          onClick={() => onCopyYesterday(meal)}
+          disabled={copyState !== "idle"}
+          aria-label={`Copy yesterday's ${label.toLowerCase()}`}
+          title="Copy yesterday"
+          className="flex items-center gap-1 rounded-lg p-1.5 text-mute transition-colors hover:bg-raise hover:text-accent disabled:opacity-60"
+        >
+          {copyState === "busy" ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <CopyPlus className="size-4" />
+          )}
+          {copyState === "empty" && (
+            <span className="text-[10px] font-medium">nothing yesterday</span>
+          )}
+        </button>
+        <span className="flex-1" />
         {total > 0 && (
           <span className="text-sm font-semibold tabular-nums text-ink-dim">
             {total} <span className="text-xs font-normal text-mute">kcal</span>
@@ -47,21 +86,27 @@ export default function MealSection({ meal, date, entries, onDelete }: Props) {
       {entries.length > 0 ? (
         <ul className="mt-2 divide-y divide-line px-4">
           {entries.map((e) => (
-            <li key={e.id} className="group flex items-center gap-3 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{e.food_name}</p>
-                <p className="mt-0.5 truncate text-xs text-mute">
-                  {e.brand ? `${e.brand} · ` : ""}
-                  {servingText(e)}
-                  {" · "}
-                  <span style={{ color: "var(--color-protein)" }}>P {Math.round(e.protein)}</span>{" "}
-                  <span style={{ color: "var(--color-carbs)" }}>C {Math.round(e.carbs)}</span>{" "}
-                  <span style={{ color: "var(--color-fat)" }}>F {Math.round(e.fat)}</span>
-                </p>
-              </div>
-              <span className="text-sm font-semibold tabular-nums">
-                {Math.round(e.calories)}
-              </span>
+            <li key={e.id} className="flex items-center gap-1 py-1">
+              <button
+                onClick={() => onEdit(e)}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-2 text-left transition-colors hover:bg-raise/50"
+                aria-label={`Edit ${e.food_name}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{e.food_name}</p>
+                  <p className="mt-0.5 truncate text-xs text-mute">
+                    {e.brand ? `${e.brand} · ` : ""}
+                    {servingText(e)}
+                    {" · "}
+                    <span style={{ color: "var(--color-protein)" }}>P {Math.round(e.protein)}</span>{" "}
+                    <span style={{ color: "var(--color-carbs)" }}>C {Math.round(e.carbs)}</span>{" "}
+                    <span style={{ color: "var(--color-fat)" }}>F {Math.round(e.fat)}</span>
+                  </p>
+                </div>
+                <span className="text-sm font-semibold tabular-nums">
+                  {Math.round(e.calories)}
+                </span>
+              </button>
               <button
                 onClick={() => onDelete(e.id)}
                 aria-label={`Delete ${e.food_name}`}

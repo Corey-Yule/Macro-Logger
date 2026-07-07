@@ -122,10 +122,26 @@ export async function fetchPendingFoods(): Promise<CommunityFood[]> {
   return (data ?? []) as CommunityFood[];
 }
 
+/** Fields an admin may correct while approving a submission. */
+export type ReviewUpdates = Partial<
+  Pick<
+    CommunityFood,
+    | "name"
+    | "brand"
+    | "serving_label"
+    | "serving_grams"
+    | "calories"
+    | "protein"
+    | "carbs"
+    | "fat"
+  >
+>;
+
 export async function reviewFood(
   id: string,
   decision: "approved" | "rejected",
-  note?: string
+  note?: string,
+  updates?: ReviewUpdates
 ): Promise<void> {
   const supabase = createClient();
   const {
@@ -136,6 +152,7 @@ export async function reviewFood(
   const { error } = await supabase
     .from("community_foods")
     .update({
+      ...updates,
       status: decision,
       review_note: note?.trim() || null,
       reviewed_by: user.id,

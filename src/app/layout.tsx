@@ -10,6 +10,14 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "MacroLog",
   description: "Scan, log, and track your calories and macros.",
+  appleWebApp: {
+    capable: true,
+    title: "MacroLog",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

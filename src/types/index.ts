@@ -68,6 +68,22 @@ export interface Profile {
   updated_at: string;
 }
 
+/** A row in the favorite_foods table — a pinned portion snapshot. */
+export interface FavoriteFood {
+  id: string;
+  user_id: string;
+  food_name: string;
+  brand: string | null;
+  barcode: string | null;
+  serving_qty: number;
+  serving_unit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  created_at: string;
+}
+
 /** Review lifecycle of a user-created food. */
 export type FoodStatus = "private" | "pending" | "approved" | "rejected";
 

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.7.0] — 2026-07-06
+
+### Added
+- **Edit logged entries** — tap any diary entry to reopen the serving sheet with its values; adjust the amount, basis, or even move it to a different meal
+- **Copy yesterday** — a one-tap button on each meal header clones yesterday's entries for that meal into the current day
+- **Favourites** — star foods from the Recent list to pin them (with their usual portion) at the top of the add page; stored per-user in a new `favorite_foods` table
+- **Water tracker** — a tappable row of eight glasses on the dashboard, stored per-day in a new `water_logs` table (both tables in `supabase/qol.sql`)
+- **Goal-hit celebration** — landing within 95–100% of your calorie goal fires a confetti burst and ring pulse (once per day, honors reduced-motion)
+- **Log button** next to the floating Scan button for one-tap access to search
+- **Admin edit-before-approve** — every field of a community submission is editable in the review queue, so small mistakes can be corrected instead of rejected; the consistency check tracks the edited values live
+- **PWA install** — web app manifest, home-screen icons (including maskable), and iOS standalone metadata; MacroLog can now be installed to a phone home screen
+
 ## [0.6.2] — 2026-07-06
 
 ### Fixed

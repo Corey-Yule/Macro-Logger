@@ -13,17 +13,31 @@ import {
   Plus,
   ScanLine,
   Search,
+  Star,
   UtensilsCrossed,
 } from "lucide-react";
 import AddFoodSheet from "@/components/AddFoodSheet";
 import BarcodeScanner from "@/components/BarcodeScanner";
-import { dateKey, entryToFoodItem, fetchRecentFoods } from "@/lib/diary";
+import {
+  addFavorite,
+  dateKey,
+  entryToFoodItem,
+  fetchFavorites,
+  fetchRecentFoods,
+  removeFavorite,
+} from "@/lib/diary";
 import {
   communityToFoodItem,
   fetchMyFoods,
   searchCommunityFoods,
 } from "@/lib/customFoods";
-import type { CommunityFood, FoodItem, FoodLogEntry, Meal } from "@/types";
+import type {
+  CommunityFood,
+  FavoriteFood,
+  FoodItem,
+  FoodLogEntry,
+  Meal,
+} from "@/types";
 
 type Tab = "search" | "scan";
 type ScanPhase = "scanning" | "looking-up" | "not-found";
@@ -127,10 +141,42 @@ function AddFood() {
   // --- shown while the search box is empty ---
   const [recents, setRecents] = useState<FoodLogEntry[]>([]);
   const [myFoods, setMyFoods] = useState<CommunityFood[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
   useEffect(() => {
     fetchRecentFoods().then(setRecents).catch(() => {});
     fetchMyFoods(5).then(setMyFoods).catch(() => {}); // table may not exist yet
+    fetchFavorites().then(setFavorites).catch(() => {}); // qol.sql may not be run yet
   }, []);
+
+  const favoriteOf = (name: string, brand: string | null) =>
+    favorites.find(
+      (f) => f.food_name === name && (f.brand ?? "") === (brand ?? "")
+    );
+
+  function toggleFavorite(entry: FoodLogEntry) {
+    const existing = favoriteOf(entry.food_name, entry.brand);
+    if (existing) {
+      setFavorites((cur) => cur.filter((f) => f.id !== existing.id));
+      removeFavorite(existing.id).catch(() =>
+        setFavorites((cur) => [existing, ...cur])
+      );
+    } else {
+      addFavorite(entry)
+        .then((f) => setFavorites((cur) => [f, ...cur]))
+        .catch(() => {});
+    }
+  }
+
+  /** A favourite is the same portion snapshot shape as a diary entry. */
+  const favToPicked = (f: FavoriteFood): Picked =>
+    entryToFoodItem({
+      ...f,
+      id: f.id,
+      user_id: f.user_id,
+      logged_on: "",
+      meal: "snacks",
+      created_at: f.created_at,
+    } as FoodLogEntry);
 
   // --- search state ---
   const [query, setQuery] = useState("");
@@ -295,9 +341,56 @@ function AddFood() {
               />
             ))}
 
-            {/* idle view: my foods + recents */}
+            {/* idle view: favourites + my foods + recents */}
             {query.trim().length < 2 && (
               <>
+                {favorites.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="flex items-center gap-1.5 px-1 pt-1 text-xs font-semibold text-mute">
+                      <Star className="size-3.5" />
+                      Favourites
+                    </p>
+                    {favorites.map((f) => (
+                      <div
+                        key={f.id}
+                        className="flex items-center gap-1 rounded-2xl bg-card p-2 ring-1 ring-line transition hover:ring-accent/40"
+                      >
+                        <button
+                          onClick={() => setSelected(favToPicked(f))}
+                          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left active:scale-[0.99]"
+                        >
+                          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
+                            <Star className="size-5 text-accent" fill="currentColor" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{f.food_name}</p>
+                            <p className="truncate text-xs text-mute">
+                              {f.brand ? `${f.brand} · ` : ""}
+                              {f.serving_unit === "g"
+                                ? `${f.serving_qty} g`
+                                : `${f.serving_qty} × ${f.serving_unit}`}
+                              {" · "}
+                              {Math.round(f.calories)} kcal
+                            </p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFavorites((cur) => cur.filter((x) => x.id !== f.id));
+                            removeFavorite(f.id).catch(() =>
+                              setFavorites((cur) => [f, ...cur])
+                            );
+                          }}
+                          aria-label={`Remove ${f.food_name} from favourites`}
+                          className="rounded-lg p-2.5 text-accent transition-colors hover:bg-raise"
+                        >
+                          <Star className="size-4" fill="currentColor" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {myFoods.length > 0 && (
                   <div className="space-y-2">
                     <p className="flex items-center gap-1.5 px-1 pt-1 text-xs font-semibold text-mute">
@@ -339,33 +432,52 @@ function AddFood() {
                       <History className="size-3.5" />
                       Recent
                     </p>
-                    {recents.map((entry) => (
-                      <button
-                        key={entry.id}
-                        onClick={() => setSelected(entryToFoodItem(entry))}
-                        className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left ring-1 ring-line transition hover:ring-accent/40 active:scale-[0.99]"
-                      >
-                        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
-                          <History className="size-5 text-mute" />
+                    {recents.map((entry) => {
+                      const faved = !!favoriteOf(entry.food_name, entry.brand);
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-center gap-1 rounded-2xl bg-card p-2 ring-1 ring-line transition hover:ring-accent/40"
+                        >
+                          <button
+                            onClick={() => setSelected(entryToFoodItem(entry))}
+                            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left active:scale-[0.99]"
+                          >
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
+                              <History className="size-5 text-mute" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{entry.food_name}</p>
+                              <p className="truncate text-xs text-mute">
+                                {entry.brand ? `${entry.brand} · ` : ""}
+                                {entry.serving_unit === "g"
+                                  ? `${entry.serving_qty} g`
+                                  : `${entry.serving_qty} × ${entry.serving_unit}`}
+                                {" · "}
+                                {Math.round(entry.calories)} kcal
+                              </p>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => toggleFavorite(entry)}
+                            aria-label={
+                              faved
+                                ? `Remove ${entry.food_name} from favourites`
+                                : `Add ${entry.food_name} to favourites`
+                            }
+                            className={`rounded-lg p-2.5 transition-colors hover:bg-raise ${
+                              faved ? "text-accent" : "text-mute hover:text-accent"
+                            }`}
+                          >
+                            <Star className="size-4" fill={faved ? "currentColor" : "none"} />
+                          </button>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{entry.food_name}</p>
-                          <p className="truncate text-xs text-mute">
-                            {entry.brand ? `${entry.brand} · ` : ""}
-                            {entry.serving_unit === "g"
-                              ? `${entry.serving_qty} g`
-                              : `${entry.serving_qty} × ${entry.serving_unit}`}
-                            {" · "}
-                            {Math.round(entry.calories)} kcal
-                          </p>
-                        </div>
-                        <span className="text-xs font-semibold text-accent">Log again</span>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
-                {myFoods.length === 0 && recents.length === 0 && !searching && (
+                {favorites.length === 0 && myFoods.length === 0 && recents.length === 0 && !searching && (
                   <p className="py-12 text-center text-sm text-mute">
                     Powered by Open Food Facts + USDA — millions of foods.
                   </p>

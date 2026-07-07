@@ -6,7 +6,9 @@ import Link from "next/link";
 import {
   Check,
   Flame,
+  GlassWater,
   Loader2,
+  Plus,
   Scale,
   ScanLine,
   Search,
@@ -14,23 +16,30 @@ import {
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
+import AddFoodSheet from "@/components/AddFoodSheet";
 import CalorieRing from "@/components/CalorieRing";
 import MacroBar from "@/components/MacroBar";
-import MealSection from "@/components/MealSection";
+import MealSection, { type CopyState } from "@/components/MealSection";
 import WeekStrip from "@/components/WeekStrip";
 import {
+  copyMealFromDate,
   dateKey,
   deleteEntry,
+  entryToFoodItem,
   fetchDay,
   fetchProfile,
   fetchRangeTotals,
+  fetchWater,
   fetchWeights,
   formatDay,
+  setWater,
   shiftDate,
   type DayTotals,
 } from "@/lib/diary";
 import { useLocalPref } from "@/lib/useLocalPref";
-import { MEALS, type FoodLogEntry, type Profile } from "@/types";
+import { MEALS, type FoodLogEntry, type Meal, type Profile } from "@/types";
+
+const WATER_GOAL = 8;
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -51,6 +60,25 @@ function calcStreak(days: DayTotals[]): number {
     cursor = shiftDate(cursor, -1);
   }
   return streak;
+}
+
+interface ConfettiPiece {
+  left: number;
+  delay: number;
+  duration: number;
+  color: string;
+  size: number;
+}
+
+function makeConfetti(): ConfettiPiece[] {
+  const colors = ["#a3e635", "#3987e5", "#e66767", "#c98500", "#f4f4f2"];
+  return Array.from({ length: 28 }, (_, i) => ({
+    left: (i * 3.7 + Math.random() * 3) % 100,
+    delay: Math.random() * 0.5,
+    duration: 1.3 + Math.random() * 0.9,
+    color: colors[i % colors.length],
+    size: 5 + Math.random() * 4,
+  }));
 }
 
 function StatTile({
@@ -91,6 +119,17 @@ function Dashboard() {
   const [history, setHistory] = useState<DayTotals[]>([]);
   const [latestWeight, setLatestWeight] = useState<number | null>(null);
   const [weightUnit] = useLocalPref<"lb" | "kg">("weight-unit", "lb");
+  const [editing, setEditing] = useState<FoodLogEntry | null>(null);
+  const [copyStates, setCopyStates] = useState<Record<Meal, CopyState>>({
+    breakfast: "idle",
+    lunch: "idle",
+    dinner: "idle",
+    snacks: "idle",
+  });
+  const [water, setWaterState] = useState(0);
+  const [waterAvailable, setWaterAvailable] = useState(true);
+  const [celebrate, setCelebrate] = useState(false);
+  const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
   const loading = loadedFor !== date;
 
   useEffect(() => {
@@ -112,6 +151,13 @@ function Dashboard() {
       })
       .finally(() => {
         if (!stale) setLoadedFor(date);
+      });
+    fetchWater(date)
+      .then((glasses) => {
+        if (!stale) setWaterState(glasses);
+      })
+      .catch(() => {
+        if (!stale) setWaterAvailable(false); // qol.sql not run yet
       });
     return () => {
       stale = true;
@@ -146,6 +192,42 @@ function Dashboard() {
     return Math.round(week.reduce((s, d) => s + d.calories, 0) / week.length);
   }, [history]);
 
+  const goals = {
+    calories: profile?.calorie_goal ?? 2000,
+    protein: profile?.protein_goal ?? 150,
+    carbs: profile?.carbs_goal ?? 250,
+    fat: profile?.fat_goal ?? 65,
+  };
+  const over = totals.calories > goals.calories;
+  const overBy = Math.round(totals.calories - goals.calories);
+  const hitGoal =
+    !loading && !over && totals.calories >= goals.calories * 0.95 && totals.calories > 0;
+
+  // Celebrate landing in the goal zone — once per day per session
+  useEffect(() => {
+    if (!hitGoal) return;
+    const key = `celebrated-${date}`;
+    if (sessionStorage.getItem(key)) return;
+    const start = setTimeout(() => {
+      sessionStorage.setItem(key, "1");
+      setConfetti(makeConfetti());
+      setCelebrate(true);
+    }, 350);
+    return () => clearTimeout(start);
+  }, [hitGoal, date]);
+
+  useEffect(() => {
+    if (!celebrate) return;
+    const stop = setTimeout(() => setCelebrate(false), 2600);
+    return () => clearTimeout(stop);
+  }, [celebrate]);
+
+  const refreshDay = useCallback(() => {
+    fetchDay(date)
+      .then(setEntries)
+      .catch(() => {});
+  }, [date]);
+
   const handleDelete = useCallback((id: string) => {
     // Optimistic: remove immediately, restore on failure
     setEntries((prev) => {
@@ -157,14 +239,34 @@ function Dashboard() {
     });
   }, []);
 
-  const goals = {
-    calories: profile?.calorie_goal ?? 2000,
-    protein: profile?.protein_goal ?? 150,
-    carbs: profile?.carbs_goal ?? 250,
-    fat: profile?.fat_goal ?? 65,
-  };
-  const over = totals.calories > goals.calories;
-  const overBy = Math.round(totals.calories - goals.calories);
+  const handleCopyYesterday = useCallback(
+    async (meal: Meal) => {
+      setCopyStates((s) => ({ ...s, [meal]: "busy" }));
+      try {
+        const rows = await copyMealFromDate(date, meal, shiftDate(date, -1));
+        if (rows.length > 0) {
+          setEntries((cur) => [...cur, ...rows]);
+          setCopyStates((s) => ({ ...s, [meal]: "idle" }));
+        } else {
+          setCopyStates((s) => ({ ...s, [meal]: "empty" }));
+          setTimeout(
+            () => setCopyStates((s) => ({ ...s, [meal]: "idle" })),
+            2200
+          );
+        }
+      } catch {
+        setCopyStates((s) => ({ ...s, [meal]: "idle" }));
+      }
+    },
+    [date]
+  );
+
+  function handleWater(index: number) {
+    const next = index + 1 === water ? index : index + 1;
+    const prev = water;
+    setWaterState(next);
+    setWater(date, next).catch(() => setWaterState(prev));
+  }
 
   return (
     <main className="px-4 pb-28 pt-6">
@@ -208,6 +310,26 @@ function Dashboard() {
           style={{ background: over ? "var(--color-danger)" : "var(--color-cal)" }}
         />
 
+        {/* goal-hit confetti */}
+        {celebrate && (
+          <div aria-hidden className="pointer-events-none absolute inset-0 z-10">
+            {confetti.map((p, i) => (
+              <span
+                key={i}
+                className="confetti absolute rounded-[2px]"
+                style={{
+                  left: `${p.left}%`,
+                  width: p.size,
+                  height: p.size * 1.6,
+                  background: p.color,
+                  animationDelay: `${p.delay}s`,
+                  animationDuration: `${p.duration}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
         <div className="relative flex items-center justify-between">
           <span className="text-xs font-semibold text-mute">{formatDay(date)}</span>
           {!loading &&
@@ -220,7 +342,7 @@ function Dashboard() {
             ) : (
               <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent ring-1 ring-accent/30">
                 <Check className="size-3" />
-                On track
+                {hitGoal ? "Goal hit!" : "On track"}
               </span>
             ))}
         </div>
@@ -238,7 +360,9 @@ function Dashboard() {
                 </p>
                 <p className="mt-0.5 text-[11px] text-mute">Eaten</p>
               </div>
-              <CalorieRing eaten={totals.calories} goal={goals.calories} />
+              <div className={celebrate ? "pulse-once" : undefined}>
+                <CalorieRing eaten={totals.calories} goal={goals.calories} />
+              </div>
               <div className="flex-1 text-center">
                 <p className="text-lg font-bold tabular-nums leading-tight">
                   {goals.calories.toLocaleString()}
@@ -293,9 +417,48 @@ function Dashboard() {
         />
       </div>
 
+      {/* water tracker */}
+      <section className="rise rise-4 mt-4 rounded-3xl bg-card p-4 ring-1 ring-line">
+        <div className="flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-bold">
+            <GlassWater className="size-4" style={{ color: "var(--color-carbs)" }} />
+            Water
+          </h2>
+          {waterAvailable && (
+            <span className="text-xs tabular-nums text-mute">
+              <span className="font-bold text-ink">{water}</span> / {WATER_GOAL} glasses
+            </span>
+          )}
+        </div>
+        {waterAvailable ? (
+          <div className="mt-3 grid grid-cols-8 gap-1.5">
+            {Array.from({ length: WATER_GOAL }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => handleWater(i)}
+                aria-label={`Set water to ${i + 1 === water ? i : i + 1} glasses`}
+                className={`flex aspect-square items-center justify-center rounded-xl ring-1 transition active:scale-90 ${
+                  i < water ? "bg-carbs/15 ring-carbs/40" : "bg-raise ring-line"
+                }`}
+              >
+                <GlassWater
+                  className="size-4.5 transition-colors"
+                  style={{ color: i < water ? "var(--color-carbs)" : "var(--color-mute)" }}
+                />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-mute">
+            One-time setup: run <span className="font-mono font-semibold">supabase/qol.sql</span>{" "}
+            in the Supabase SQL Editor, then reload.
+          </p>
+        )}
+      </section>
+
       {/* empty-day call to action */}
       {!loading && entries.length === 0 && (
-        <div className="rise rise-4 mt-4 flex items-center gap-3 rounded-3xl bg-card p-4 ring-1 ring-line">
+        <div className="rise rise-5 mt-4 flex items-center gap-3 rounded-3xl bg-card p-4 ring-1 ring-line">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent/10 ring-1 ring-accent/25">
             <Flame className="size-5 text-accent" />
           </div>
@@ -322,20 +485,54 @@ function Dashboard() {
               date={date}
               entries={entries.filter((e) => e.meal === meal)}
               onDelete={handleDelete}
+              onEdit={setEditing}
+              onCopyYesterday={handleCopyYesterday}
+              copyState={copyStates[meal]}
             />
           </div>
         ))}
       </div>
 
-      {/* floating scan button */}
-      <Link
-        href={`/add?date=${date}&tab=scan`}
-        aria-label="Scan a barcode"
-        className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-sm font-bold text-bg shadow-[0_8px_30px_rgba(163,230,53,0.35)] transition active:scale-95"
-      >
-        <ScanLine className="size-4.5" />
-        Scan
-      </Link>
+      {/* floating action bar */}
+      <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2">
+        <Link
+          href={`/add?date=${date}`}
+          aria-label="Log food"
+          className="flex items-center gap-2 rounded-full bg-card px-5 py-3.5 text-sm font-bold text-ink ring-1 ring-line backdrop-blur transition active:scale-95"
+        >
+          <Plus className="size-4.5 text-accent" />
+          Log
+        </Link>
+        <Link
+          href={`/add?date=${date}&tab=scan`}
+          aria-label="Scan a barcode"
+          className="flex items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-sm font-bold text-bg shadow-[0_8px_30px_rgba(163,230,53,0.35)] transition active:scale-95"
+        >
+          <ScanLine className="size-4.5" />
+          Scan
+        </Link>
+      </div>
+
+      {/* edit-entry sheet */}
+      {editing &&
+        (() => {
+          const { food, allowGrams, initialQty } = entryToFoodItem(editing);
+          return (
+            <AddFoodSheet
+              food={food}
+              allowGrams={allowGrams}
+              initialQty={initialQty}
+              date={date}
+              initialMeal={editing.meal}
+              editEntryId={editing.id}
+              onClose={() => setEditing(null)}
+              onAdded={() => {
+                setEditing(null);
+                refreshDay();
+              }}
+            />
+          );
+        })()}
     </main>
   );
 }

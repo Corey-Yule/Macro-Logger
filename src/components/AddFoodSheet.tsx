@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Loader2, Minus, Package, Plus, X } from "lucide-react";
-import { addEntry } from "@/lib/diary";
+import { addEntry, updateEntry } from "@/lib/diary";
 import { MEALS, type FoodItem, type Meal } from "@/types";
 
 type Basis = "serving" | "g";
@@ -23,6 +23,8 @@ interface Props {
   /** False when per-100g values can't be trusted (rebuilt from a logged serving). */
   allowGrams?: boolean;
   initialQty?: number;
+  /** When set, the sheet edits this existing diary entry instead of adding a new one. */
+  editEntryId?: string;
 }
 
 export default function AddFoodSheet({
@@ -33,6 +35,7 @@ export default function AddFoodSheet({
   onAdded,
   allowGrams = true,
   initialQty,
+  editEntryId,
 }: Props) {
   const hasServing = food.perServing !== null;
   const [basis, setBasis] = useState<Basis>(hasServing ? "serving" : "g");
@@ -71,7 +74,7 @@ export default function AddFoodSheet({
     setPending(true);
     setError(null);
     try {
-      await addEntry({
+      const payload = {
         logged_on: date,
         meal,
         food_name: food.name,
@@ -80,7 +83,12 @@ export default function AddFoodSheet({
         serving_qty: qty,
         serving_unit: basis === "serving" ? `serving (${food.servingSize})` : "g",
         ...totals,
-      });
+      };
+      if (editEntryId) {
+        await updateEntry(editEntryId, payload);
+      } else {
+        await addEntry(payload);
+      }
       onAdded();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save — try again.");
@@ -232,7 +240,11 @@ export default function AddFoodSheet({
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-bold text-bg transition active:scale-[0.98] disabled:opacity-60"
         >
           {pending && <Loader2 className="size-4 animate-spin" />}
-          {qty <= 0 ? "Enter an amount" : `Add to ${MEAL_LABEL[meal]}`}
+          {qty <= 0
+            ? "Enter an amount"
+            : editEntryId
+              ? `Save changes${meal !== initialMeal ? ` — move to ${MEAL_LABEL[meal]}` : ""}`
+              : `Add to ${MEAL_LABEL[meal]}`}
         </button>
       </div>
     </div>

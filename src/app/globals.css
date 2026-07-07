@@ -87,8 +87,33 @@ body {
   width: 100%;
 }
 
+/* ---- goal-hit celebration ---- */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-12px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(360px) rotate(560deg);
+    opacity: 0;
+  }
+}
+.confetti {
+  top: -12px;
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+@keyframes pulse-once {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.pulse-once {
+  animation: pulse-once 0.7s ease-in-out 2;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rise, .sheet-up, .fade-in, .laser {
+  .rise, .sheet-up, .fade-in, .laser, .confetti, .pulse-once {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
