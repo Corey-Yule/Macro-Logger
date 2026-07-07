@@ -75,6 +75,9 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
    - [`supabase/weights.sql`](supabase/weights.sql) — weight tracking table
    - [`supabase/community_foods.sql`](supabase/community_foods.sql) — custom foods, user roles, review pipeline (edit the email at the bottom to grant yourself admin)
    - [`supabase/qol.sql`](supabase/qol.sql) — favourites + water tracking tables
+   - [`supabase/hide_foods.sql`](supabase/hide_foods.sql) — per-user hide list for "My foods"
+
+   Optionally, paste [`supabase/email-templates/confirm-signup.html`](supabase/email-templates/confirm-signup.html) into **Authentication → Emails → Templates → Confirm signup** for a branded confirmation email.
 
 4. **Run it**
 

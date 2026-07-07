@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.8.0] — 2026-07-06
+
+### Added
+- **Swipe right to remove foods from "My foods"** — approved community foods are only hidden from your personal list (the community keeps them, tracked in a new `hidden_community_foods` table — see `supabase/hide_foods.sql`); private, pending, and rejected foods are deleted outright. The gesture works with touch and mouse, hands vertical drags back to the scroller, and animates the row away
+- **Branded Supabase confirmation email** — `supabase/email-templates/confirm-signup.html`, a dark MacroLog-styled template ready to paste into Supabase's "Confirm signup" template editor
+
 ## [0.7.0] — 2026-07-06
 
 ### Added

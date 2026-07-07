@@ -37,7 +37,7 @@ export async function createCustomFood(input: NewCustomFood): Promise<CommunityF
   return data as CommunityFood;
 }
 
-/** The current user's own foods, newest first. */
+/** The current user's own foods, newest first, minus any they've hidden. */
 export async function fetchMyFoods(limit = 20): Promise<CommunityFood[]> {
   const supabase = createClient();
   const {
@@ -45,14 +45,54 @@ export async function fetchMyFoods(limit = 20): Promise<CommunityFood[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
-    .from("community_foods")
-    .select("*")
-    .eq("created_by", user.id)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as CommunityFood[];
+  const [foodsRes, hiddenIds] = await Promise.all([
+    supabase
+      .from("community_foods")
+      .select("*")
+      .eq("created_by", user.id)
+      .order("created_at", { ascending: false })
+      .limit(limit + 50),
+    supabase
+      .from("hidden_community_foods")
+      .select("food_id")
+      // hide table may not exist yet — a query error means "nothing hidden"
+      .then(({ data, error }) =>
+        error
+          ? new Set<string>()
+          : new Set((data ?? []).map((r) => r.food_id as string))
+      ),
+  ]);
+  if (foodsRes.error) throw new Error(foodsRes.error.message);
+
+  return ((foodsRes.data ?? []) as CommunityFood[])
+    .filter((f) => !hiddenIds.has(f.id))
+    .slice(0, limit);
+}
+
+/**
+ * Remove a food from the user's "My foods" list.
+ * Approved community foods are only hidden (the community keeps them);
+ * private/pending/rejected foods are the user's alone and get deleted.
+ */
+export async function removeFromMyFoods(food: CommunityFood): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  if (food.status === "approved") {
+    const { error } = await supabase
+      .from("hidden_community_foods")
+      .upsert({ user_id: user.id, food_id: food.id });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("community_foods")
+      .delete()
+      .eq("id", food.id);
+    if (error) throw new Error(error.message);
+  }
 }
 
 /**

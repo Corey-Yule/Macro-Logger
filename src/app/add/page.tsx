@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import AddFoodSheet from "@/components/AddFoodSheet";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import SwipeToDelete from "@/components/SwipeToDelete";
 import {
   addFavorite,
   dateKey,
@@ -29,6 +30,7 @@ import {
 import {
   communityToFoodItem,
   fetchMyFoods,
+  removeFromMyFoods,
   searchCommunityFoods,
 } from "@/lib/customFoods";
 import type {
@@ -165,6 +167,15 @@ function AddFood() {
         .then((f) => setFavorites((cur) => [f, ...cur]))
         .catch(() => {});
     }
+  }
+
+  function handleRemoveMyFood(food: CommunityFood) {
+    // Optimistic: drop from the list, restore on failure. Approved foods are
+    // only hidden from this list — the community keeps them.
+    setMyFoods((cur) => cur.filter((f) => f.id !== food.id));
+    removeFromMyFoods(food).catch(() =>
+      setMyFoods((cur) => [food, ...cur])
+    );
   }
 
   /** A favourite is the same portion snapshot shape as a diary entry. */
@@ -400,29 +411,37 @@ function AddFood() {
                     {myFoods.map((f) => {
                       const chip = STATUS_CHIP[f.status];
                       return (
-                        <button
+                        <SwipeToDelete
                           key={f.id}
-                          onClick={() => setSelected(communityToFoodItem(f))}
-                          className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left ring-1 ring-line transition hover:ring-accent/40 active:scale-[0.99]"
+                          label={f.status === "approved" ? "Remove from my foods" : "Delete"}
+                          onDelete={() => handleRemoveMyFood(f)}
                         >
-                          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
-                            <UtensilsCrossed className="size-5 text-mute" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{f.name}</p>
-                            <p className="truncate text-xs text-mute">
-                              {f.brand ? `${f.brand} · ` : ""}
-                              {Math.round(f.calories)} kcal / {f.serving_label}
-                            </p>
-                          </div>
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${chip.cls}`}
+                          <button
+                            onClick={() => setSelected(communityToFoodItem(f))}
+                            className="flex w-full items-center gap-3 rounded-2xl bg-card p-3 text-left ring-1 ring-line transition hover:ring-accent/40 active:scale-[0.99]"
                           >
-                            {chip.label}
-                          </span>
-                        </button>
+                            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-raise ring-1 ring-line">
+                              <UtensilsCrossed className="size-5 text-mute" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{f.name}</p>
+                              <p className="truncate text-xs text-mute">
+                                {f.brand ? `${f.brand} · ` : ""}
+                                {Math.round(f.calories)} kcal / {f.serving_label}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${chip.cls}`}
+                            >
+                              {chip.label}
+                            </span>
+                          </button>
+                        </SwipeToDelete>
                       );
                     })}
+                    <p className="px-1 text-center text-[10px] text-mute">
+                      Swipe a food right to remove it from this list
+                    </p>
                   </div>
                 )}
 
