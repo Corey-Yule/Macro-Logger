@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.6.2] — 2026-07-06
+
+### Fixed
+- Amount fields no longer snap to a minimum value when cleared — the serving-sheet quantity and settings calorie inputs can now be emptied and retyped freely (the pain was worst on phones, where the forced value was uneditable); validation moved to the Add/Save actions instead
+
 ## [0.6.1] — 2026-07-06
 
 ### Fixed

@@ -68,6 +68,9 @@ export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [calories, setCalories] = useState<number | null>(null);
+  // Raw text of the calories field — lets the user clear it while typing
+  // instead of snapping to a minimum; `calories` keeps the last valid value.
+  const [calInput, setCalInput] = useState("");
   const [pct, setPct] = useState<Pct>({ protein: 30, carbs: 40, fat: 30 });
   const [saved, setSaved] = useState<{ calories: number } & Record<MacroKey, number> | null>(null);
   const [saving, setSaving] = useState(false);
@@ -86,6 +89,7 @@ export default function SettingsPage() {
         fat: p?.fat_goal ?? 65,
       };
       setCalories(cal);
+      setCalInput(String(cal));
       setPct(pctFromGrams(g.protein, g.carbs, g.fat));
       setSaved({ calories: cal, ...g });
     });
@@ -122,7 +126,9 @@ export default function SettingsPage() {
 
   function setCal(v: number) {
     setJustSaved(false);
-    setCalories(Math.max(800, v));
+    const next = Math.max(100, v);
+    setCalories(next);
+    setCalInput(String(next));
   }
 
   async function handleSave() {
@@ -190,13 +196,18 @@ export default function SettingsPage() {
               <input
                 type="number"
                 inputMode="numeric"
-                value={calories}
-                min={800}
+                value={calInput}
+                min={0}
                 step={50}
                 onChange={(e) => {
+                  setCalInput(e.target.value);
                   const v = parseInt(e.target.value, 10);
-                  setCal(Number.isFinite(v) ? v : 800);
+                  if (Number.isFinite(v) && v > 0) {
+                    setJustSaved(false);
+                    setCalories(v);
+                  }
                 }}
+                onBlur={() => setCalInput(String(calories ?? ""))}
                 className="w-full bg-transparent text-center text-lg font-bold tabular-nums outline-none"
               />
               <button

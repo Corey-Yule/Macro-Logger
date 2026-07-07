@@ -36,10 +36,15 @@ export default function AddFoodSheet({
 }: Props) {
   const hasServing = food.perServing !== null;
   const [basis, setBasis] = useState<Basis>(hasServing ? "serving" : "g");
-  const [qty, setQty] = useState(initialQty ?? (hasServing ? 1 : 100));
+  // Keep the raw input string so the field can be cleared while typing —
+  // snapping empty input back to a minimum makes it untypable on phones.
+  const [qtyStr, setQtyStr] = useState(String(initialQty ?? (hasServing ? 1 : 100)));
   const [meal, setMeal] = useState<Meal>(initialMeal);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const parsed = parseFloat(qtyStr);
+  const qty = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 
   const step = basis === "serving" ? 0.5 : 10;
   const min = basis === "serving" ? 0.5 : 5;
@@ -47,7 +52,7 @@ export default function AddFoodSheet({
   function switchBasis(b: Basis) {
     if (b === basis) return;
     setBasis(b);
-    setQty(b === "serving" ? 1 : 100);
+    setQtyStr(b === "serving" ? "1" : "100");
   }
 
   const totals = useMemo(() => {
@@ -149,7 +154,9 @@ export default function AddFoodSheet({
         {/* quantity stepper */}
         <div className="mt-3 flex items-center justify-between rounded-2xl bg-raise px-3 py-2.5 ring-1 ring-line">
           <button
-            onClick={() => setQty((q) => Math.max(min, Math.round((q - step) * 100) / 100))}
+            onClick={() =>
+              setQtyStr(String(Math.max(min, Math.round((qty - step) * 100) / 100)))
+            }
             aria-label="Decrease amount"
             className="flex size-10 items-center justify-center rounded-xl bg-card text-ink ring-1 ring-line transition active:scale-90"
           >
@@ -159,13 +166,10 @@ export default function AddFoodSheet({
             <input
               type="number"
               inputMode="decimal"
-              value={qty}
-              min={min}
+              value={qtyStr}
+              min={0}
               step={step}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                setQty(Number.isFinite(v) && v > 0 ? v : min);
-              }}
+              onChange={(e) => setQtyStr(e.target.value)}
               className="w-24 bg-transparent text-center text-2xl font-bold tabular-nums outline-none"
             />
             <p className="text-[11px] text-mute">
@@ -173,7 +177,7 @@ export default function AddFoodSheet({
             </p>
           </div>
           <button
-            onClick={() => setQty((q) => Math.round((q + step) * 100) / 100)}
+            onClick={() => setQtyStr(String(Math.round((qty + step) * 100) / 100))}
             aria-label="Increase amount"
             className="flex size-10 items-center justify-center rounded-xl bg-card text-ink ring-1 ring-line transition active:scale-90"
           >
@@ -224,11 +228,11 @@ export default function AddFoodSheet({
 
         <button
           onClick={handleAdd}
-          disabled={pending}
+          disabled={pending || qty <= 0}
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-bold text-bg transition active:scale-[0.98] disabled:opacity-60"
         >
           {pending && <Loader2 className="size-4 animate-spin" />}
-          Add to {MEAL_LABEL[meal]}
+          {qty <= 0 ? "Enter an amount" : `Add to ${MEAL_LABEL[meal]}`}
         </button>
       </div>
     </div>
