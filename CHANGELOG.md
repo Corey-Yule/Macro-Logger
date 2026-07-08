@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.9.0] — 2026-07-08
+
+### Added
+- **Exercise logging** — a flame-orange Exercise card on the dashboard with a "Log exercise" sheet: six activity quick-picks (running, walking, cycling, gym, swimming, sports) with a free-text name, optional duration, calories burned with quick-pick chips, and per-entry delete. New `supabase/exercise.sql` migration
+- **Calories back** — burned calories extend the day's budget (budget = goal + exercise): the ring, remaining count, over-goal warning, and goal-hit celebration all use the adjusted budget; the hero card now shows Eaten | Ring | Burned with a "Budget 2,320 — 2,000 goal + 320 exercise" caption
+
 ## [0.8.0] — 2026-07-06
 
 ### Added

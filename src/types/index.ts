@@ -68,6 +68,17 @@ export interface Profile {
   updated_at: string;
 }
 
+/** A row in the exercise_logs table. Calories are added to the daily budget. */
+export interface ExerciseEntry {
+  id: string;
+  user_id: string;
+  logged_on: string;
+  name: string;
+  duration_min: number | null;
+  calories: number;
+  created_at: string;
+}
+
 /** A row in the favorite_foods table — a pinned portion snapshot. */
 export interface FavoriteFood {
   id: string;

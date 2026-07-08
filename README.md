@@ -20,6 +20,7 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
 - **📒 Food diary** — entries grouped by meal (breakfast / lunch / dinner / snacks), serving-size and gram-based portions, optimistic one-tap delete, full date navigation
 - **🕑 Recent foods & favourites** — re-log anything from your history in two taps, star foods to pin them with their usual portion, copy yesterday's meals, and edit or move logged entries in place
 - **💧 Water tracker** — tappable glasses on the dashboard, saved per day
+- **🏃 Exercise logging** — log workouts with duration and calories burned; burned calories extend the day's budget and flow through the ring, warnings, and celebrations
 - **📲 Installable PWA** — add MacroLog to your phone's home screen and it runs standalone, with a goal-hit confetti celebration to keep you honest
 - **🍳 Custom & community foods** — create foods that aren't in any database (private to you, loggable instantly), or submit them to the community; an admin review queue with a macro-consistency check gates what enters the shared database
 - **📈 Trends** — 7/30-day calorie chart against your goal line with tap-to-inspect days, weekly averages, and streak tracking
@@ -76,6 +77,7 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
    - [`supabase/community_foods.sql`](supabase/community_foods.sql) — custom foods, user roles, review pipeline (edit the email at the bottom to grant yourself admin)
    - [`supabase/qol.sql`](supabase/qol.sql) — favourites + water tracking tables
    - [`supabase/hide_foods.sql`](supabase/hide_foods.sql) — per-user hide list for "My foods"
+   - [`supabase/exercise.sql`](supabase/exercise.sql) — exercise / calories-burned logging
 
    Optionally, paste [`supabase/email-templates/confirm-signup.html`](supabase/email-templates/confirm-signup.html) into **Authentication → Emails → Templates → Confirm signup** for a branded confirmation email.
 

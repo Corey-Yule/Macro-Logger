@@ -13,11 +13,13 @@ import {
   ScanLine,
   Search,
   Settings,
+  Trash2,
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
 import AddFoodSheet from "@/components/AddFoodSheet";
 import CalorieRing from "@/components/CalorieRing";
+import ExerciseSheet from "@/components/ExerciseSheet";
 import MacroBar from "@/components/MacroBar";
 import MealSection, { type CopyState } from "@/components/MealSection";
 import WeekStrip from "@/components/WeekStrip";
@@ -25,8 +27,10 @@ import {
   copyMealFromDate,
   dateKey,
   deleteEntry,
+  deleteExercise,
   entryToFoodItem,
   fetchDay,
+  fetchExercise,
   fetchProfile,
   fetchRangeTotals,
   fetchWater,
@@ -37,7 +41,13 @@ import {
   type DayTotals,
 } from "@/lib/diary";
 import { useLocalPref } from "@/lib/useLocalPref";
-import { MEALS, type FoodLogEntry, type Meal, type Profile } from "@/types";
+import {
+  MEALS,
+  type ExerciseEntry,
+  type FoodLogEntry,
+  type Meal,
+  type Profile,
+} from "@/types";
 
 const WATER_GOAL = 8;
 
@@ -128,6 +138,9 @@ function Dashboard() {
   });
   const [water, setWaterState] = useState(0);
   const [waterAvailable, setWaterAvailable] = useState(true);
+  const [exercise, setExercise] = useState<ExerciseEntry[]>([]);
+  const [exerciseAvailable, setExerciseAvailable] = useState(true);
+  const [exerciseOpen, setExerciseOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
   const loading = loadedFor !== date;
@@ -158,6 +171,13 @@ function Dashboard() {
       })
       .catch(() => {
         if (!stale) setWaterAvailable(false); // qol.sql not run yet
+      });
+    fetchExercise(date)
+      .then((rows) => {
+        if (!stale) setExercise(rows);
+      })
+      .catch(() => {
+        if (!stale) setExerciseAvailable(false); // exercise.sql not run yet
       });
     return () => {
       stale = true;
@@ -198,10 +218,13 @@ function Dashboard() {
     carbs: profile?.carbs_goal ?? 250,
     fat: profile?.fat_goal ?? 65,
   };
-  const over = totals.calories > goals.calories;
-  const overBy = Math.round(totals.calories - goals.calories);
+  // Exercise gives calories back: budget = goal + burned
+  const burned = Math.round(exercise.reduce((s, e) => s + e.calories, 0));
+  const budget = goals.calories + burned;
+  const over = totals.calories > budget;
+  const overBy = Math.round(totals.calories - budget);
   const hitGoal =
-    !loading && !over && totals.calories >= goals.calories * 0.95 && totals.calories > 0;
+    !loading && !over && totals.calories >= budget * 0.95 && totals.calories > 0;
 
   // Celebrate landing in the goal zone — once per day per session
   useEffect(() => {
@@ -361,15 +384,24 @@ function Dashboard() {
                 <p className="mt-0.5 text-[11px] text-mute">Eaten</p>
               </div>
               <div className={celebrate ? "pulse-once" : undefined}>
-                <CalorieRing eaten={totals.calories} goal={goals.calories} />
+                <CalorieRing eaten={totals.calories} goal={budget} />
               </div>
               <div className="flex-1 text-center">
-                <p className="text-lg font-bold tabular-nums leading-tight">
-                  {goals.calories.toLocaleString()}
+                <p
+                  className="text-lg font-bold tabular-nums leading-tight"
+                  style={burned > 0 ? { color: "var(--color-burn)" } : undefined}
+                >
+                  {burned > 0 ? `+${burned.toLocaleString()}` : "—"}
                 </p>
-                <p className="mt-0.5 text-[11px] text-mute">Goal</p>
+                <p className="mt-0.5 text-[11px] text-mute">Burned</p>
               </div>
             </div>
+            <p className="relative mt-2 text-center text-[11px] tabular-nums text-mute">
+              Budget {budget.toLocaleString()} kcal
+              {burned > 0 && (
+                <> — {goals.calories.toLocaleString()} goal + {burned.toLocaleString()} exercise</>
+              )}
+            </p>
 
             <div className="relative mt-5 grid grid-cols-3 gap-4">
               <MacroBar
@@ -456,6 +488,88 @@ function Dashboard() {
         )}
       </section>
 
+      {/* exercise */}
+      <section
+        className="rise rise-4 mt-4 overflow-hidden rounded-3xl p-4 ring-1 ring-line"
+        style={{
+          background:
+            "linear-gradient(135deg, color-mix(in srgb, var(--color-burn) 10%, var(--color-card)), var(--color-card) 55%)",
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-bold">
+            <Flame className="size-4" style={{ color: "var(--color-burn)" }} />
+            Exercise
+          </h2>
+          {burned > 0 && (
+            <span
+              className="text-sm font-bold tabular-nums"
+              style={{ color: "var(--color-burn)" }}
+            >
+              +{burned.toLocaleString()}{" "}
+              <span className="text-xs font-normal text-mute">kcal back</span>
+            </span>
+          )}
+        </div>
+
+        {!exerciseAvailable ? (
+          <p className="mt-3 text-xs text-mute">
+            One-time setup: run{" "}
+            <span className="font-mono font-semibold">supabase/exercise.sql</span> in the
+            Supabase SQL Editor, then reload.
+          </p>
+        ) : (
+          <>
+            {exercise.length > 0 && (
+              <ul className="mt-2 divide-y divide-line">
+                {exercise.map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{e.name}</p>
+                      {e.duration_min && (
+                        <p className="text-xs text-mute">{e.duration_min} min</p>
+                      )}
+                    </div>
+                    <span
+                      className="text-sm font-semibold tabular-nums"
+                      style={{ color: "var(--color-burn)" }}
+                    >
+                      +{Math.round(e.calories)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setExercise((cur) => {
+                          const removed = cur.find((x) => x.id === e.id);
+                          deleteExercise(e.id).catch(() => {
+                            if (removed) setExercise((c) => [...c, removed]);
+                          });
+                          return cur.filter((x) => x.id !== e.id);
+                        });
+                      }}
+                      aria-label={`Delete ${e.name}`}
+                      className="rounded-lg p-2 text-mute transition-colors hover:bg-danger/10 hover:text-danger"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              onClick={() => setExerciseOpen(true)}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed py-2.5 text-xs font-semibold transition-colors"
+              style={{
+                borderColor: "color-mix(in srgb, var(--color-burn) 40%, transparent)",
+                color: "var(--color-burn)",
+              }}
+            >
+              <Flame className="size-3.5" />
+              Log exercise
+            </button>
+          </>
+        )}
+      </section>
+
       {/* empty-day call to action */}
       {!loading && entries.length === 0 && (
         <div className="rise rise-5 mt-4 flex items-center gap-3 rounded-3xl bg-card p-4 ring-1 ring-line">
@@ -512,6 +626,18 @@ function Dashboard() {
           Scan
         </Link>
       </div>
+
+      {/* exercise sheet */}
+      {exerciseOpen && (
+        <ExerciseSheet
+          date={date}
+          onClose={() => setExerciseOpen(false)}
+          onAdded={(entry) => {
+            setExercise((cur) => [...cur, entry]);
+            setExerciseOpen(false);
+          }}
+        />
+      )}
 
       {/* edit-entry sheet */}
       {editing &&

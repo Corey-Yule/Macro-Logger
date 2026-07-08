@@ -19,6 +19,7 @@
   --color-protein: #e66767;
   --color-carbs: #3987e5;
   --color-fat: #c98500;
+  --color-burn: #d95926;
   --color-danger: #d03b3b;
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
 }

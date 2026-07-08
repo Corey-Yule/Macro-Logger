@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import type {
+  ExerciseEntry,
   FavoriteFood,
   FoodItem,
   FoodLogEntry,
@@ -220,6 +221,46 @@ export async function addFavorite(
 export async function removeFavorite(id: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("favorite_foods").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/* ---------------- exercise ---------------- */
+
+export async function fetchExercise(date: string): Promise<ExerciseEntry[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("exercise_logs")
+    .select("*")
+    .eq("logged_on", date)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ExerciseEntry[];
+}
+
+export async function addExercise(entry: {
+  logged_on: string;
+  name: string;
+  duration_min: number | null;
+  calories: number;
+}): Promise<ExerciseEntry> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  const { data, error } = await supabase
+    .from("exercise_logs")
+    .insert({ ...entry, user_id: user.id })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ExerciseEntry;
+}
+
+export async function deleteExercise(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("exercise_logs").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 
