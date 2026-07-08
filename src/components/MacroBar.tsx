@@ -8,9 +8,11 @@ interface Props {
   goal: number; // grams
   /** CSS color for the fill, e.g. "var(--color-protein)" */
   color: string;
+  /** Extra grams granted by exercise, already included in `goal`. */
+  bonus?: number;
 }
 
-export default function MacroBar({ label, eaten, goal, color }: Props) {
+export default function MacroBar({ label, eaten, goal, color, bonus = 0 }: Props) {
   const pct = goal > 0 ? Math.min((eaten / goal) * 100, 100) : 0;
   const over = eaten > goal;
 
@@ -45,7 +47,14 @@ export default function MacroBar({ label, eaten, goal, color }: Props) {
       <p className="mt-1.5 text-xs tabular-nums text-mute">
         <span className="font-semibold text-ink">{Math.round(eaten)}</span>
         {" / "}
-        {goal} g{over && <span className="text-danger"> · over</span>}
+        {goal} g
+        {bonus > 0 && (
+          <span className="font-semibold" style={{ color: "var(--color-burn)" }}>
+            {" "}
+            ↑{bonus}
+          </span>
+        )}
+        {over && <span className="text-danger"> · over</span>}
       </p>
     </div>
   );

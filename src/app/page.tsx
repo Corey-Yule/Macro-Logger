@@ -218,9 +218,16 @@ function Dashboard() {
     carbs: profile?.carbs_goal ?? 250,
     fat: profile?.fat_goal ?? 65,
   };
-  // Exercise gives calories back: budget = goal + burned
+  // Exercise gives calories back: budget = goal + burned. Macro targets
+  // scale by the same factor so the user's chosen split is preserved.
   const burned = Math.round(exercise.reduce((s, e) => s + e.calories, 0));
   const budget = goals.calories + burned;
+  const scale = goals.calories > 0 ? budget / goals.calories : 1;
+  const macroGoals = {
+    protein: Math.round(goals.protein * scale),
+    carbs: Math.round(goals.carbs * scale),
+    fat: Math.round(goals.fat * scale),
+  };
   const over = totals.calories > budget;
   const overBy = Math.round(totals.calories - budget);
   const hitGoal =
@@ -407,19 +414,22 @@ function Dashboard() {
               <MacroBar
                 label="Protein"
                 eaten={totals.protein}
-                goal={goals.protein}
+                goal={macroGoals.protein}
+                bonus={macroGoals.protein - goals.protein}
                 color="var(--color-protein)"
               />
               <MacroBar
                 label="Carbs"
                 eaten={totals.carbs}
-                goal={goals.carbs}
+                goal={macroGoals.carbs}
+                bonus={macroGoals.carbs - goals.carbs}
                 color="var(--color-carbs)"
               />
               <MacroBar
                 label="Fat"
                 eaten={totals.fat}
-                goal={goals.fat}
+                goal={macroGoals.fat}
+                bonus={macroGoals.fat - goals.fat}
                 color="var(--color-fat)"
               />
             </div>

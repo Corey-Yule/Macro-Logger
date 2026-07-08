@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.9.1] — 2026-07-09
+
+### Changed
+- **Macro targets now scale with exercise** — burned calories raise the protein/carbs/fat gram targets by the same factor as the calorie budget, preserving the user's chosen split; the macro meters show the boost as an orange ↑ next to the target (e.g. "82 / 174 g ↑24")
+
 ## [0.9.0] — 2026-07-08
 
 ### Added
