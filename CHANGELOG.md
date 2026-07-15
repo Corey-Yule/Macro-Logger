@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) (pre-1.0: minor
 versions may include breaking changes).
 
+## [0.11.0] — 2026-07-09
+
+### Added
+- **Push notifications** — full web-push infrastructure: service worker, VAPID keys, a `push_subscriptions` table (`supabase/push.sql`), and an Enable Notifications toggle in Settings (per-device, with unsupported/blocked states explained; iPhone requires the home-screen install)
+- **Admin review alerts** — when someone submits a food to the community, every admin device gets a push ("New food to review") that opens the review queue on tap; expired subscriptions are cleaned up automatically
+- **Review badge** — admins see the pending-review count as a badge on the dashboard's settings cog and on the Settings → Admin row
+
+## [0.10.0] — 2026-07-09
+
+### Added
+- **FatSecret Platform as a third food database** — strong UK supermarket coverage, merged into search alongside Open Food Facts and USDA with an FS badge. OAuth2 client-credentials flow runs server-side with in-memory token caching; credentials go in `FATSECRET_CLIENT_ID` / `FATSECRET_CLIENT_SECRET` (optional — search works without them). Serving-only FatSecret entries disable gram-based logging rather than showing approximated per-100g numbers
+
+## [0.9.2] — 2026-07-09
+
+### Changed
+- **UK-first food search** — Open Food Facts queries now run a UK-filtered search alongside the worldwide one and rank UK products (Tesco, Co-op, McVitie's, …) first
+
+### Fixed
+- **Search resilience** — Open Food Facts' modern search engine intermittently returns 502, which previously silently emptied the OFF side of results and left only American USDA entries. Search now fails over to OFF's legacy engine (UK subdomain + world index) automatically, so results stay UK-flavoured even during outages
+
 ## [0.9.1] — 2026-07-09
 
 ### Changed

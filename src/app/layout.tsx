@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import SwRegister from "@/components/SwRegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,6 +36,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full">
+        <SwRegister />
         {/* phone-width column on desktop, full width on mobile */}
         <div className="mx-auto min-h-dvh w-full max-w-md">{children}</div>
       </body>

@@ -95,6 +95,11 @@ export async function getProductByBarcode(
   return toFoodItem(data.product);
 }
 
+// The app's home market: prioritized in search results. Change both values
+// together to retarget (e.g. "en:france" + https://fr.openfoodfacts.org).
+const PRIORITY_COUNTRY_TAG = "en:united-kingdom";
+const PRIORITY_COUNTRY_BASE = "https://uk.openfoodfacts.org";
+
 // Search-a-licious hits look like OffProduct except brands is an array and
 // the kJ fallback lives under a different key.
 interface OffSearchHit extends Omit<OffProduct, "brands"> {
@@ -102,24 +107,24 @@ interface OffSearchHit extends Omit<OffProduct, "brands"> {
   nutriments?: OffNutriments & { "energy-kj_100g"?: number };
 }
 
-/**
- * Free-text product search (fallback when scanning fails), via OFF's
- * Search-a-licious engine — far better relevance than the legacy
- * /cgi/search.pl endpoint, which returns zero hits for many multi-word
- * branded queries.
- */
-export async function searchProducts(query: string): Promise<FoodItem[]> {
-  const params = new URLSearchParams({
-    q: query,
-    page_size: "20",
-    fields: FIELDS,
-  });
+function dedupeByCode(items: FoodItem[]): FoodItem[] {
+  const seen = new Set<string>();
+  const out: FoodItem[] = [];
+  for (const item of items) {
+    if (seen.has(item.barcode)) continue;
+    seen.add(item.barcode);
+    out.push(item);
+  }
+  return out;
+}
 
+/** Modern engine (search.openfoodfacts.org) — best relevance, sometimes 502s. */
+async function salSearch(q: string): Promise<FoodItem[]> {
+  const params = new URLSearchParams({ q, page_size: "20", fields: FIELDS });
   const res = await fetch(`https://search.openfoodfacts.org/search?${params}`, {
     headers: OFF_HEADERS,
   });
-  if (!res.ok) throw new Error(`Open Food Facts error: ${res.status}`);
-
+  if (!res.ok) throw new Error(`Search-a-licious error: ${res.status}`);
   const data: { hits?: OffSearchHit[] } = await res.json();
   return (data.hits ?? [])
     .map((hit) => {
@@ -131,4 +136,54 @@ export async function searchProducts(query: string): Promise<FoodItem[]> {
       });
     })
     .filter((item): item is FoodItem => item !== null);
+}
+
+/** Legacy engine — weaker relevance but independent infrastructure. */
+async function legacySearch(base: string, query: string): Promise<FoodItem[]> {
+  const params = new URLSearchParams({
+    search_terms: query,
+    search_simple: "1",
+    action: "process",
+    json: "1",
+    page_size: "20",
+    fields: FIELDS,
+  });
+  const res = await fetch(`${base}/cgi/search.pl?${params}`, {
+    headers: OFF_HEADERS,
+  });
+  if (!res.ok) throw new Error(`OFF legacy error: ${res.status}`);
+  const text = await res.text();
+  if (!text.trimStart().startsWith("{")) throw new Error("OFF legacy returned HTML");
+  const data: { products?: OffProduct[] } = JSON.parse(text);
+  return (data.products ?? [])
+    .map(toFoodItem)
+    .filter((item): item is FoodItem => item !== null);
+}
+
+/**
+ * Free-text product search, home-market first: a UK-filtered query and a
+ * worldwide query run in parallel and merge with UK products leading.
+ * If the modern engine is down entirely (it 502s from time to time), the
+ * legacy engine's UK subdomain + world index take over the same way.
+ */
+export async function searchProducts(query: string): Promise<FoodItem[]> {
+  const [uk, world] = await Promise.allSettled([
+    salSearch(`${query} countries_tags:"${PRIORITY_COUNTRY_TAG}"`),
+    salSearch(query),
+  ]);
+  if (uk.status === "fulfilled" || world.status === "fulfilled") {
+    return dedupeByCode([
+      ...(uk.status === "fulfilled" ? uk.value : []),
+      ...(world.status === "fulfilled" ? world.value : []),
+    ]);
+  }
+
+  const [ukLegacy, worldLegacy] = await Promise.allSettled([
+    legacySearch(PRIORITY_COUNTRY_BASE, query),
+    legacySearch(OFF_BASE, query),
+  ]);
+  return dedupeByCode([
+    ...(ukLegacy.status === "fulfilled" ? ukLegacy.value : []),
+    ...(worldLegacy.status === "fulfilled" ? worldLegacy.value : []),
+  ]);
 }

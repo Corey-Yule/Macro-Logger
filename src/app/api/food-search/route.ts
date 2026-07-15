@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { searchFatSecret } from "@/lib/fatsecret";
 import { getProductByBarcode, searchProducts } from "@/lib/openfoodfacts";
 import { searchUsda, usdaByBarcode } from "@/lib/usda";
 import type { FoodItem } from "@/types";
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest) {
 
   if (!q || q.length < 2) return NextResponse.json([]);
 
-  const [off, usda] = await Promise.all([
+  const [off, usda, fatsecret] = await Promise.all([
     searchProducts(q).catch(() => [] as FoodItem[]),
     searchUsda(q).catch(() => [] as FoodItem[]),
+    searchFatSecret(q).catch(() => [] as FoodItem[]),
   ]);
 
   // Generic USDA foods (no brand) get inserted first so that on relevance
@@ -37,7 +39,9 @@ export async function GET(request: NextRequest) {
   const out: FoodItem[] = [];
   const seen = new Set<string>();
   const push = (item: FoodItem) => {
-    const codeKey = item.barcode.startsWith("usda-") ? "" : strip0(item.barcode);
+    const syntheticCode =
+      item.barcode.startsWith("usda-") || item.barcode.startsWith("fs-");
+    const codeKey = syntheticCode ? "" : strip0(item.barcode);
     const nameKey = `${item.name}|${item.brand ?? ""}`.toLowerCase();
     if (codeKey && seen.has(`c:${codeKey}`)) return;
     if (seen.has(`n:${nameKey}`)) return;
@@ -48,6 +52,7 @@ export async function GET(request: NextRequest) {
 
   generic.slice(0, 5).forEach(push);
   off.forEach(push);
+  fatsecret.forEach(push); // strong UK branded coverage
   branded.forEach(push);
   generic.slice(5).forEach(push);
 

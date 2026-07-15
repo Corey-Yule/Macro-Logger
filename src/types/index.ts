@@ -20,7 +20,12 @@ export interface FoodItem {
   name: string;
   brand: string | null;
   /** Which database the item came from (recalled diary items leave it unset). */
-  source?: "off" | "usda" | "community";
+  source?: "off" | "usda" | "community" | "fatsecret";
+  /**
+   * False when the per-100g values are approximations from a serving-only
+   * source, so gram-based logging should be disabled. Absent = true.
+   */
+  gramsSupported?: boolean;
   imageUrl: string | null;
   /** Human-readable serving, e.g. "30 g" */
   servingSize: string | null;

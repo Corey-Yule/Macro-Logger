@@ -79,6 +79,12 @@ function SourceBadge({ source }: { source: FoodItem["source"] }) {
         CUSTOM
       </span>
     );
+  if (source === "fatsecret")
+    return (
+      <span className="shrink-0 rounded bg-protein/15 px-1 py-0.5 text-[9px] font-bold tracking-wide text-protein">
+        FS
+      </span>
+    );
   return null;
 }
 
@@ -112,7 +118,7 @@ function FoodRow({ item, onPick }: { item: Picked; onPick: () => void }) {
         </p>
         <p className="truncate text-xs text-mute">
           {food.brand ? `${food.brand} · ` : ""}
-          {food.source === "community" && food.perServing
+          {(food.source === "community" || food.gramsSupported === false) && food.perServing
             ? `${Math.round(food.perServing.calories)} kcal / ${food.servingSize}`
             : `${Math.round(food.per100g.calories)} kcal / 100 g`}
         </p>
@@ -221,7 +227,10 @@ function AddFood() {
         ])
           .then(([api, custom]) => {
             const customPicked = custom.map(communityToFoodItem);
-            const apiPicked = api.map((food) => ({ food, allowGrams: true }));
+            const apiPicked = api.map((food) => ({
+              food,
+              allowGrams: food.gramsSupported !== false,
+            }));
             setResults([...customPicked, ...apiPicked]);
             setSearched(true);
           })

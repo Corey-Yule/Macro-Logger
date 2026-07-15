@@ -40,6 +40,7 @@ import {
   shiftDate,
   type DayTotals,
 } from "@/lib/diary";
+import { fetchPendingCount } from "@/lib/customFoods";
 import { useLocalPref } from "@/lib/useLocalPref";
 import {
   MEALS,
@@ -143,10 +144,16 @@ function Dashboard() {
   const [exerciseOpen, setExerciseOpen] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
+  const [reviewCount, setReviewCount] = useState(0);
   const loading = loadedFor !== date;
 
   useEffect(() => {
-    fetchProfile().then(setProfile);
+    fetchProfile().then((p) => {
+      setProfile(p);
+      if (p?.role === "admin") {
+        fetchPendingCount().then(setReviewCount).catch(() => {});
+      }
+    });
     fetchRangeTotals(30).then(setHistory).catch(() => {});
     fetchWeights(90)
       .then((ws) => setLatestWeight(ws.length ? ws[ws.length - 1].weight : null))
@@ -318,10 +325,19 @@ function Dashboard() {
           </Link>
           <Link
             href="/settings"
-            aria-label="Settings"
-            className="rounded-xl p-2.5 text-mute transition-colors hover:bg-card hover:text-ink"
+            aria-label={
+              reviewCount > 0
+                ? `Settings — ${reviewCount} food${reviewCount === 1 ? "" : "s"} awaiting review`
+                : "Settings"
+            }
+            className="relative rounded-xl p-2.5 text-mute transition-colors hover:bg-card hover:text-ink"
           >
             <Settings className="size-4.5" />
+            {reviewCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-[18px] text-bg">
+                {reviewCount > 9 ? "9+" : reviewCount}
+              </span>
+            )}
           </Link>
         </div>
       </header>

@@ -34,7 +34,28 @@ export async function createCustomFood(input: NewCustomFood): Promise<CommunityF
     .select()
     .single();
   if (error) throw new Error(error.message);
+
+  if (submit) {
+    // Announce to admin devices — fire-and-forget, never blocks the save
+    fetch("/api/push/notify-admins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: fields.name }),
+    }).catch(() => {});
+  }
+
   return data as CommunityFood;
+}
+
+/** Number of community foods waiting for review (admins see them all via RLS). */
+export async function fetchPendingCount(): Promise<number> {
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from("community_foods")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) return 0;
+  return count ?? 0;
 }
 
 /** The current user's own foods, newest first, minus any they've hidden. */

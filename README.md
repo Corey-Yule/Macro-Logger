@@ -15,7 +15,7 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
 ## ✨ Features
 
 - **📷 Barcode scanning** — UPC/EAN scanning through the device camera using the native BarcodeDetector where available, with a torch toggle and clear permission, no-camera, and not-found states
-- **🔎 Dual-database food search** — [Open Food Facts](https://openfoodfacts.org) (packaged products, photos) merged with [USDA FoodData Central](https://fdc.nal.usda.gov) (lab-verified generic foods, branded fallback) behind a single server-side API route
+- **🔎 Triple-database food search** — [Open Food Facts](https://openfoodfacts.org) (packaged products, photos, UK-first with outage failover), [USDA FoodData Central](https://fdc.nal.usda.gov) (lab-verified generic foods), and [FatSecret Platform](https://platform.fatsecret.com) (UK supermarket brands) merged behind a single server-side API route
 - **📊 Daily dashboard** — animated calorie ring with count-up remaining calories, macro progress meters, on-track/over-goal status, and a week calendar strip with logged-day dots
 - **📒 Food diary** — entries grouped by meal (breakfast / lunch / dinner / snacks), serving-size and gram-based portions, optimistic one-tap delete, full date navigation
 - **🕑 Recent foods & favourites** — re-log anything from your history in two taps, star foods to pin them with their usual portion, copy yesterday's meals, and edit or move logged entries in place
@@ -69,6 +69,9 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
    | `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API (anon/public key) |
    | `USDA_API_KEY` | Emailed to you after [signup](https://fdc.nal.usda.gov/api-key-signup) (server-side only) |
+   | `FATSECRET_CLIENT_ID` / `FATSECRET_CLIENT_SECRET` | [platform.fatsecret.com](https://platform.fatsecret.com) → your application (server-side only, optional) |
+   | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | `npx web-push generate-vapid-keys` (for push notifications, optional) |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase dashboard → Project Settings → API (server-side only; required for push) |
 
 3. **Create the database** — in the Supabase dashboard, open **SQL Editor** and run, in order:
 
@@ -78,6 +81,7 @@ MacroLog is a MyFitnessPal-style food diary built as a modern web app. Point you
    - [`supabase/qol.sql`](supabase/qol.sql) — favourites + water tracking tables
    - [`supabase/hide_foods.sql`](supabase/hide_foods.sql) — per-user hide list for "My foods"
    - [`supabase/exercise.sql`](supabase/exercise.sql) — exercise / calories-burned logging
+   - [`supabase/push.sql`](supabase/push.sql) — push notification subscriptions
 
    Optionally, paste [`supabase/email-templates/confirm-signup.html`](supabase/email-templates/confirm-signup.html) into **Authentication → Emails → Templates → Confirm signup** for a branded confirmation email.
 
@@ -122,7 +126,6 @@ supabase/                      # SQL schema + migrations
 ## 🗺 Roadmap
 
 - [ ] Restaurant food coverage (Nutritionix)
-- [ ] UK-boosted Open Food Facts search for better drink/supermarket coverage
 - [ ] Daily logging reminder notifications
 - [ ] CSV export
 

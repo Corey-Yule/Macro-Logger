@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Bell,
+  BellOff,
   Check,
   ChevronRight,
   Flame,
@@ -16,7 +18,14 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchPendingCount } from "@/lib/customFoods";
 import { fetchProfile, updateGoals } from "@/lib/diary";
+import {
+  getPushState,
+  subscribeToPush,
+  unsubscribeFromPush,
+  type PushState,
+} from "@/lib/notifications";
 
 type MacroKey = "protein" | "carbs" | "fat";
 type Pct = Record<MacroKey, number>;
@@ -67,6 +76,10 @@ export default function SettingsPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [pushState, setPushState] = useState<PushState | null>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [calories, setCalories] = useState<number | null>(null);
   // Raw text of the calories field — lets the user clear it while typing
   // instead of snapping to a minimum; `calories` keeps the last valid value.
@@ -80,8 +93,12 @@ export default function SettingsPage() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? ""));
+    getPushState().then(setPushState).catch(() => setPushState("unsupported"));
     fetchProfile().then((p) => {
       setIsAdmin(p?.role === "admin");
+      if (p?.role === "admin") {
+        fetchPendingCount().then(setReviewCount).catch(() => {});
+      }
       const cal = p?.calorie_goal ?? 2000;
       const g = {
         protein: p?.protein_goal ?? 150,
@@ -318,6 +335,87 @@ export default function SettingsPage() {
             </button>
           </section>
 
+          {/* notifications */}
+          <section className="rise rise-2 mt-4 rounded-3xl bg-card p-5 ring-1 ring-line">
+            <h2 className="text-sm font-bold">Notifications</h2>
+            {pushState === "unsupported" ? (
+              <p className="mt-3 text-xs text-mute">
+                This browser doesn&apos;t support push notifications. On iPhone, install
+                MacroLog to your home screen first (Share → Add to Home Screen), then
+                enable notifications from the installed app.
+              </p>
+            ) : pushState === "denied" ? (
+              <p className="mt-3 text-xs text-mute">
+                Notifications are blocked for this site. Allow them in your browser
+                settings, then come back here.
+              </p>
+            ) : (
+              <button
+                onClick={async () => {
+                  setPushBusy(true);
+                  setPushError(null);
+                  try {
+                    setPushState(
+                      pushState === "subscribed"
+                        ? await unsubscribeFromPush()
+                        : await subscribeToPush()
+                    );
+                  } catch (err) {
+                    setPushError(
+                      err instanceof Error ? err.message : "Couldn't update notifications."
+                    );
+                  } finally {
+                    setPushBusy(false);
+                  }
+                }}
+                disabled={pushBusy || pushState === null}
+                className={`mt-3 flex w-full items-center gap-3 rounded-2xl p-4 text-left ring-1 transition ${
+                  pushState === "subscribed" ? "bg-accent/10 ring-accent/40" : "bg-raise ring-line"
+                }`}
+              >
+                <div
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
+                    pushState === "subscribed"
+                      ? "bg-accent text-bg"
+                      : "bg-card text-mute ring-1 ring-line"
+                  }`}
+                >
+                  {pushBusy ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : pushState === "subscribed" ? (
+                    <Bell className="size-5" />
+                  ) : (
+                    <BellOff className="size-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold">
+                    {pushState === "subscribed" ? "Notifications on" : "Enable notifications"}
+                  </p>
+                  <p className="text-xs text-mute">
+                    {pushState === "subscribed"
+                      ? "This device gets MacroLog notifications. Tap to turn off."
+                      : isAdmin
+                        ? "Get notified when foods are submitted for review."
+                        : "Get MacroLog notifications on this device."}
+                  </p>
+                </div>
+                <span
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    pushState === "subscribed" ? "bg-accent" : "bg-card ring-1 ring-line"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 size-5 rounded-full transition-all ${
+                      pushState === "subscribed" ? "left-[22px] bg-bg" : "left-0.5 bg-ink"
+                    }`}
+                  />
+                </span>
+              </button>
+            )}
+            {pushError && <p className="mt-2 text-center text-xs text-danger">{pushError}</p>}
+          </section>
+
           {/* admin */}
           {isAdmin && (
             <section className="rise rise-2 mt-4 rounded-3xl bg-card p-5 ring-1 ring-line">
@@ -328,6 +426,11 @@ export default function SettingsPage() {
               >
                 <ShieldCheck className="size-4 shrink-0 text-accent" />
                 <span className="flex-1 text-sm font-medium">Review community foods</span>
+                {reviewCount > 0 && (
+                  <span className="flex min-w-[20px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold leading-5 text-bg">
+                    {reviewCount > 9 ? "9+" : reviewCount}
+                  </span>
+                )}
                 <ChevronRight className="size-4 text-mute" />
               </Link>
             </section>
